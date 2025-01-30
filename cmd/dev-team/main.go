@@ -76,6 +76,7 @@ func main() {
 
 	// Start the scheduler
 	state.State.Scheduler.Start()
+    state.State.Scheduler.ScheduleIssueUpdates()
 	defer state.State.Scheduler.Stop()
 
 	handler := c.Handler(r)

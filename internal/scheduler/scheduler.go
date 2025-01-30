@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"dev-team/internal/state"
 	"log"
 	"sync"
 
@@ -74,4 +75,40 @@ func (s *Scheduler) RemoveTask(key string) {
 
 func (s *Scheduler) UpdateTask(key string, schedule string, action func()) error {
 	return s.AddTask(key, schedule, action)
+}
+
+func (s *Scheduler) ScheduleIssueUpdates() {
+    s.AddTask("github-issue-updates", "@every 5m", func() {
+        state.State.Mu.RLock()
+        repos := state.State.Repositories
+        token := state.State.Settings.GitHubToken
+        state.State.Mu.RUnlock()
+
+        if token == "" {
+            log.Println("GitHub token not configured, skipping issue updates")
+            return
+        }
+
+        for _, repo := range repos {
+            err := repo.UpdateIssues(token)
+            if err != nil {
+                log.Printf("Error updating issues for repo %s: %v", repo.Path, err)
+                continue
+            }
+            filteredIssues := make(map[int64]repository.Issue)
+            for _, issue := range repo.Issues {
+                hasDevTeamLabel := false
+                for _, label := range issue.Labels {
+                    if label.Name == "dev-team" {
+                        hasDevTeamLabel = true
+                        break
+                    }
+                }
+                if hasDevTeamLabel {
+                    filteredIssues[issue.ID] = issue
+                }
+            }
+            state.State.UpdateTrackedIssues(filteredIssues)
+        }
+    })
 }

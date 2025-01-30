@@ -59,8 +59,24 @@ func HandleGitHubIssues(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	issues := make([]repository.Issue, 0, len(repo.Issues))
+    filteredIssues := make(map[int64]repository.Issue)
 	for _, issue := range repo.Issues {
+        hasDevTeamLabel := false
+        for _, label := range issue.Labels {
+            if label.Name == "dev-team" {
+                hasDevTeamLabel = true
+                break
+            }
+        }
+        if hasDevTeamLabel {
+            filteredIssues[issue.ID] = issue
+        }
+	}
+    state.State.UpdateTrackedIssues(filteredIssues)
+
+
+	issues := make([]repository.Issue, 0, len(filteredIssues))
+	for _, issue := range filteredIssues {
 		issues = append(issues, issue)
 	}
 
