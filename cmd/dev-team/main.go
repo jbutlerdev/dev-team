@@ -42,6 +42,9 @@ func main() {
 		log.Printf("Error initializing GenAI provider: %v", err)
 	}
 	appState.GenAI = genaiProvider
+    if appState.TrackedIssues == nil {
+        appState.TrackedIssues = make(map[int]*github.Issue)
+    }
 	state.State = appState
 
 	r := mux.NewRouter()
@@ -77,6 +80,7 @@ func main() {
 	// Start the scheduler
 	state.State.Scheduler.Start()
 	defer state.State.Scheduler.Stop()
+    handlers.StartIssueTracking()
 
 	handler := c.Handler(r)
 	log.Printf("Server starting on http://0.0.0.0:8083")

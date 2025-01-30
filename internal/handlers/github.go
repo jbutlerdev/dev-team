@@ -6,8 +6,10 @@ import (
 	"dev-team/pkg/repository"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"path/filepath"
+	"time"
 )
 
 func HandleGitHubRepositories(w http.ResponseWriter, r *http.Request) {
@@ -65,4 +67,58 @@ func HandleGitHubIssues(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(issues)
+}
+
+func TrackIssues() {
+    state.State.Mu.RLock()
+    token := state.State.Settings.GitHubToken
+    state.State.Mu.RUnlock()
+
+    if token == "" {
+        log.Println("GitHub token not configured, cannot track issues")
+        return
+    }
+
+    for _, repo := range state.State.Repositories {
+        issues, err := github.FetchIssues(token, repo.Owner, repo.Name, "dev-team")
+        if err != nil {
+            log.Printf("Error fetching issues for %s/%s: %v", repo.Owner, repo.Name, err)
+            continue
+        }
+
+        state.State.Mu.Lock()
+        for _, issue := range issues {
+            if _, exists := state.State.TrackedIssues[issue.GetID()]; !exists {
+                state.State.TrackedIssues[issue.GetID()] = issue
+                log.Printf("Start tracking issue: %d - %s", issue.GetID(), issue.GetTitle())
+            }
+        }
+        state.State.Mu.Unlock()
+    }
+
+    //Check for closed issues
+    state.State.Mu.Lock()
+    for id, issue := range state.State.TrackedIssues {
+        if issue.IsClosed() {
+            delete(state.State.TrackedIssues, id)
+            log.Printf("Stop tracking issue: %d - %s", issue.GetID(), issue.GetTitle())
+        }
+    }
+    state.State.Mu.Unlock()
+}
+
+
+func StartIssueTracking() {
+    log.Println("Starting issue tracking")
+    err := state.State.Scheduler.AddTask("issue-tracking", "*/5 * * * *", func() {
+        TrackIssues()
+    })
+    if err != nil {
+        log.Printf("Error adding issue tracking task: %v", err)
+    }
+}
+
+func StopIssueTracking() {
+    log.Println("Stopping issue tracking")
+    state.State.Scheduler.RemoveTask("issue-tracking")
 }
