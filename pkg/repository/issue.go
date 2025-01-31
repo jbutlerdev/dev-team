@@ -45,11 +45,12 @@ func (r *Repository) UpdateIssues(token string) error {
 	if r.RemotePath == "" {
 		return fmt.Errorf("repository remote path is not set")
 	}
-	issues, err := github.FetchIssues(r.RemotePath, "dev-team", token)
+    issues, err := github.FetchIssues(r.RemotePath, "dev-team", token)
 	if err != nil {
 		log.Printf("Error fetching issues: %v, request: %v", err, r.RemotePath)
 		return err
 	}
+    r.Issues = make(map[int]*Issue) // Clear existing issues
 	for _, issue := range issues {
 		r.Issues[issue.Number] = ghIssueToIssue(issue)
 	}
