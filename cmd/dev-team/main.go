@@ -55,14 +55,13 @@ func main() {
 	api.HandleFunc("/repositories/clone", handlers.HandleCloneRepository).Methods("POST")
 	api.HandleFunc("/repositories/commit", handlers.HandleCommit).Methods("POST")
 	api.HandleFunc("/repositories/push", handlers.HandlePush).Methods("POST")
-    api.HandleFunc("/repositories/pr", handlers.HandleCreatePR).Methods("POST")
+	api.HandleFunc("/repositories/pr", handlers.HandleCreatePR).Methods("POST")
 	api.HandleFunc("/repositories/sync", handlers.HandleSyncRepository).Methods("POST")
 	api.HandleFunc("/settings", handlers.HandleGetSettings).Methods("GET")
 	api.HandleFunc("/settings", handlers.HandleUpdateSettings).Methods("POST")
 	api.HandleFunc("/gemini/models", handlers.HandleGeminiModels).Methods("GET")
 	api.HandleFunc("/github/repositories", handlers.HandleGitHubRepositories).Methods("GET")
 	api.HandleFunc("/github/issues", handlers.HandleGitHubIssues).Methods("GET")
-    api.HandleFunc("/github/pr", handlers.CreatePRFromIssueHandler).Methods("POST")
 
 	// Web routes
 	r.HandleFunc("/", handleHome).Methods("GET")
