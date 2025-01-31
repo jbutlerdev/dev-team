@@ -6,6 +6,8 @@ import (
 	"log"
 	"regexp"
 	"strings"
+    "time"
+    "os/exec"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/google/go-github/v60/github"
@@ -179,6 +181,75 @@ func CreatePR(path string, githubToken string, input GitHubPRInput, labels []str
 	return nil
 }
 
+
+func CreatePRFromIssue(path, issueTitle, issueBody, baseBranch, githubToken string) error {
+    ctx := context.Background()
+	client := newGitHubClient(ctx, githubToken)
+
+    repo, err := git.PlainOpen(path)
+    if err != nil {
+        return err
+    }
+
+    remote, err := repo.Remote("origin")
+    if err != nil {
+        return fmt.Errorf("error getting remote: %v", err)
+    }
+
+    remoteURL := remote.Config().URLs[0]
+    var owner, repoName string
+    if strings.Contains(remoteURL, "git@github.com:") {
+        parts := strings.Split(strings.TrimPrefix(remoteURL, "git@github.com:"), "/")
+        owner = parts[0]
+        repoName = strings.TrimSuffix(parts[1], ".git")
+    } else {
+        parts := strings.Split(strings.TrimPrefix(remoteURL, "https://github.com/"), "/")
+        owner = parts[0]
+        repoName = strings.TrimSuffix(parts[1], ".git")
+    }
+
+
+    branchName := strings.ReplaceAll(issueTitle, " ", "-")
+	branchName = strings.ToLower(branchName)
+    
+    // Create new branch
+    cmd := exec.Command("git", "checkout", "-b", branchName)
+    cmd.Dir = path
+    err = cmd.Run()
+    if err != nil {
+        return fmt.Errorf("error creating branch: %v", err)
+    }
+    
+	// Commit changes
+    cmd = exec.Command("git", "commit", "--allow-empty", "-m", fmt.Sprintf("Generated code for issue: %s", issueTitle))
+    cmd.Dir = path
+    err = cmd.Run()
+    if err != nil {
+        return fmt.Errorf("error committing changes: %v", err)
+    }
+
+    // Push the new branch
+    cmd = exec.Command("git", "push", "origin", branchName)
+    cmd.Dir = path
+    err = cmd.Run()
+    if err != nil {
+        return fmt.Errorf("error pushing branch: %v", err)
+    }
+    
+    prInput := GitHubPRInput{
+        Title: issueTitle,
+        Description: issueBody,
+        Branch: branchName,
+        Base: baseBranch,
+    }
+    
+    err = CreatePR(path, githubToken, prInput, []string{"dev-team"})
+    if err != nil {
+        return fmt.Errorf("error creating pull request: %v", err)
+    }
+
+    return nil
+}
 
 func FetchRepositories(githubToken string) ([]Repository, error) {
 	if githubToken == "" {
