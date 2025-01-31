@@ -26,6 +26,7 @@ type Repository struct {
 	Issues       map[int]*Issue       `json:"issues,omitempty"`
 	PullRequests map[int]*PullRequest `json:"pullRequests,omitempty"`
 	RemotePath   string               `json:"remotePath,omitempty"`
+    BaseBranch   string               `json:"baseBranch,omitempty"`
 }
 
 type Changes struct {
@@ -39,6 +40,7 @@ func NewRepository(path string) *Repository {
 		Path:         path,
 		Issues:       make(map[int]*Issue),
 		PullRequests: make(map[int]*PullRequest),
+        BaseBranch:   "main",
 	}
 }
 
@@ -265,7 +267,7 @@ func (r *Repository) getChanges() (*Changes, error) {
 	}
 
 	currentBranch := head.Name().Short()
-	branchChanges, err := getBranchChanges(repo, currentBranch, "main")
+	branchChanges, err := getBranchChanges(repo, currentBranch, r.BaseBranch)
 	if err != nil {
 		return nil, fmt.Errorf("error getting branch changes: %v", err)
 	}
@@ -368,7 +370,7 @@ func (r *Repository) createPR(aiService *genai.Provider, issue *Issue, token str
 	return github.CreateDraftPR(r.Path, token, github.GitHubPRInput{
 		Title:               prTitle,
 		Branch:              r.State.CurrentBranch,
-		Base:                "main",
+		Base:                r.BaseBranch,
 		Description:         prDescription,
 		Draft:               true,
 		MaintainerCanModify: true,

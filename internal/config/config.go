@@ -30,6 +30,7 @@ func LoadConfig() (*state.AppState, error) {
 				Repositories: make(map[string]*repository.Repository),
 				Settings: settings.Settings{
 					Provider: "gemini",
+                    BaseBranch: "main",
 				},
 				Scheduler: scheduler.NewScheduler(),
 			}
@@ -56,6 +57,7 @@ func LoadConfig() (*state.AppState, error) {
 	// Set up repositories and their schedules
 	for path, repo := range config.Repositories {
 		r := repository.NewRepository(repo.Path)
+        r.BaseBranch = repo.BaseBranch
 		r.Schedule = repo.Schedule
 		r.RemotePath = repo.RemotePath
 		err := r.UpdateStatus()
