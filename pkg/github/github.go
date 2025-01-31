@@ -269,3 +269,60 @@ func getLinkedIssueURLs(body string) []string {
 	}
 	return urls
 }
+
+func CreatePRFromIssue(path string, githubToken string, issue Issue, draft bool) error {
+	ctx := context.Background()
+	client := newGitHubClient(ctx, githubToken)
+
+	repo, err := git.PlainOpen(path)
+	if err != nil {
+		return err
+	}
+
+	remote, err := repo.Remote("origin")
+	if err != nil {
+		return fmt.Errorf("error getting remote: %v", err)
+	}
+
+	remoteURL := remote.Config().URLs[0]
+	var owner, repoName string
+	if strings.Contains(remoteURL, "git@github.com:") {
+		parts := strings.Split(strings.TrimPrefix(remoteURL, "git@github.com:"), "/")
+		owner = parts[0]
+		repoName = strings.TrimSuffix(parts[1], ".git")
+	} else {
+		parts := strings.Split(strings.TrimPrefix(remoteURL, "https://github.com/"), "/")
+		owner = parts[0]
+		repoName = strings.TrimSuffix(parts[1], ".git")
+	}
+
+	if githubToken == "" {
+		return fmt.Errorf("GitHub token not provided in settings")
+	}
+
+	branchName := strings.ReplaceAll(issue.Title, " ", "-")
+	branchName = strings.ToLower(branchName)
+
+    newPR := &github.NewPullRequest{
+        Title: github.String(issue.Title),
+        Head:  github.String(branchName),
+        Base:  github.String("main"), // Assuming main branch, should be configurable
+        Body:  github.String(issue.Body),
+		Draft: github.Bool(draft),
+    }
+
+	pr, _, err := client.PullRequests.Create(ctx, owner, repoName, newPR)
+	if err != nil {
+		return fmt.Errorf("error creating PR: %v", err)
+	}
+    
+	_, _, err = client.Issues.AddLabelsToIssue(ctx, owner, repoName, pr.GetNumber(), []string{"dev-team"})
+	if err != nil {
+		return fmt.Errorf("error adding labels to PR: %v", err)
+	}
+
+	prLink := pr.GetHTMLURL()
+	log.Printf("PR created successfully: %s", prLink)
+
+	return nil
+}
