@@ -13,7 +13,6 @@ import (
 	"dev-team/internal/state"
 	"dev-team/pkg/repository"
 
-	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 )
 
@@ -44,28 +43,40 @@ func main() {
 	appState.GenAI = genaiProvider
 	state.State = appState
 
-	r := mux.NewRouter()
+	mux := http.NewServeMux()
 
 	// API routes
-	api := r.PathPrefix("/api").Subrouter()
-	api.HandleFunc("/repositories", handlers.HandleListRepositories).Methods("GET")
-	api.HandleFunc("/repositories", handlers.HandleAddRepository).Methods("POST")
-	api.HandleFunc("/repositories", handlers.HandleDeleteRepository).Methods("DELETE")
-	api.HandleFunc("/repositories/update", handlers.HandleUpdateRepository).Methods("POST")
-	api.HandleFunc("/repositories/clone", handlers.HandleCloneRepository).Methods("POST")
-	api.HandleFunc("/repositories/commit", handlers.HandleCommit).Methods("POST")
-	api.HandleFunc("/repositories/push", handlers.HandlePush).Methods("POST")
-	api.HandleFunc("/repositories/pr", handlers.HandleCreatePR).Methods("POST")
-	api.HandleFunc("/repositories/sync", handlers.HandleSyncRepository).Methods("POST")
-	api.HandleFunc("/settings", handlers.HandleGetSettings).Methods("GET")
-	api.HandleFunc("/settings", handlers.HandleUpdateSettings).Methods("POST")
-	api.HandleFunc("/gemini/models", handlers.HandleGeminiModels).Methods("GET")
-	api.HandleFunc("/github/repositories", handlers.HandleGitHubRepositories).Methods("GET")
-	api.HandleFunc("/github/issues", handlers.HandleGitHubIssues).Methods("GET")
+	mux.HandleFunc("/api/repositories", func(w http.ResponseWriter, r *http.Request) {
+        switch r.Method {
+        case "GET":
+            handlers.HandleListRepositories(w, r)
+        case "POST":
+            handlers.HandleAddRepository(w, r)
+        case "DELETE":
+            handlers.HandleDeleteRepository(w, r)
+        }
+    })
+	mux.HandleFunc("/api/repositories/update", handlers.HandleUpdateRepository).Methods("POST")
+	mux.HandleFunc("/api/repositories/clone", handlers.HandleCloneRepository).Methods("POST")
+	mux.HandleFunc("/api/repositories/commit", handlers.HandleCommit).Methods("POST")
+	mux.HandleFunc("/api/repositories/push", handlers.HandlePush).Methods("POST")
+	mux.HandleFunc("/api/repositories/pr", handlers.HandleCreatePR).Methods("POST")
+	mux.HandleFunc("/api/repositories/sync", handlers.HandleSyncRepository).Methods("POST")
+	mux.HandleFunc("/api/settings", func(w http.ResponseWriter, r *http.Request) {
+        switch r.Method {
+        case "GET":
+            handlers.HandleGetSettings(w, r)
+        case "POST":
+             handlers.HandleUpdateSettings(w, r)
+        }
+    })
+	mux.HandleFunc("/api/gemini/models", handlers.HandleGeminiModels).Methods("GET")
+    mux.HandleFunc("/api/github/repositories", handlers.HandleGitHubRepositories).Methods("GET")
+	mux.HandleFunc("/api/github/issues", handlers.HandleGitHubIssues).Methods("GET")
 
 	// Web routes
-	r.HandleFunc("/", handleHome).Methods("GET")
-	r.HandleFunc("/settings", handleSettingsPage).Methods("GET")
+	mux.HandleFunc("/", handleHome).Methods("GET")
+	mux.HandleFunc("/settings", handleSettingsPage).Methods("GET")
 
 	// Configure CORS for API routes
 	c := cors.New(cors.Options{
@@ -78,7 +89,7 @@ func main() {
 	state.State.Scheduler.Start()
 	defer state.State.Scheduler.Stop()
 
-	handler := c.Handler(r)
+	handler := c.Handler(mux)
 	log.Printf("Server starting on http://0.0.0.0:8083")
 	log.Fatal(http.ListenAndServe("0.0.0.0:8083", handler))
 }
