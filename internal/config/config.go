@@ -30,6 +30,7 @@ func LoadConfig() (*state.AppState, error) {
 				Repositories: make(map[string]*repository.Repository),
 				Settings: settings.Settings{
 					Provider: "gemini",
+					McpServers: make(map[string]settings.McpServer),
 				},
 				Scheduler: scheduler.NewScheduler(),
 			}

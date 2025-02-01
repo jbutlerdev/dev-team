@@ -59,3 +59,44 @@ func handleSettingsChange(newSettings settings.Settings) error {
 	}
 	return nil
 }
+
+func HandleAddMcpServer(w http.ResponseWriter, r *http.Request) {
+	var mcpServer settings.McpServer
+	var serverName string
+	if err := json.NewDecoder(r.Body).Decode(&struct {
+		Name string `json:"name"`
+		Server settings.McpServer `json:"server"`
+	}{&serverName, &mcpServer}); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := AddMcpServer(serverName, mcpServer); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func HandleRemoveMcpServer(w http.ResponseWriter, r *http.Request) {
+	var serverName string
+	if err := json.NewDecoder(r.Body).Decode(&struct {
+		Name string `json:"name"`
+	}{&serverName}); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	if err := RemoveMcpServer(serverName); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func HandleListMcpServers(w http.ResponseWriter, r *http.Request) {
+	mcpServers := ListMcpServers()
+	json.NewEncoder(w).Encode(mcpServers)
+}
