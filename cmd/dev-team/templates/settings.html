@@ -40,6 +40,12 @@
             <small class="help-text">Required for creating pull requests. Token should have 'repo' scope.</small>
         </div>
 
+        <div class="form-group">
+            <label class="label" for="baseBranch">Base Branch</label>
+            <input type="text" id="baseBranch" name="baseBranch" class="input" value="{{.Settings.BaseBranch}}" placeholder="Enter the base branch for pull requests">
+            <small class="help-text">The branch to create pull requests against.</small>
+        </div>
+
         <button type="submit" class="button">Save Settings</button>
     </form>
 </div>
@@ -126,6 +132,7 @@ async function handleUpdateSettings(event) {
         apiKey: form.apiKey.value,
         server: form.server.value,
         githubToken: form.githubToken.value,
+        baseBranch: form.baseBranch.value,
     };
 
     try {

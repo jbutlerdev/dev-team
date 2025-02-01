@@ -6,4 +6,5 @@ type Settings struct {
 	APIKey      string `json:"apiKey"`
 	Server      string `json:"server"`
 	GitHubToken string `json:"githubToken"`
+	BaseBranch string `json:"baseBranch"`
 }
