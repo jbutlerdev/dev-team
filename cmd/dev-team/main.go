@@ -2,10 +2,12 @@ package main
 
 import (
 	"embed"
+	"fmt"
 	"genai"
 	"html/template"
 	"log"
 	"net/http"
+	"os/exec"
 
 	"dev-team/internal/config"
 	"dev-team/internal/handlers"
@@ -43,6 +45,50 @@ func main() {
 	}
 	appState.GenAI = genaiProvider
 	state.State = appState
+
+	// Code validation
+	log.Println("Running code validation...")
+
+	// Run go fmt
+	cmd := exec.Command("go", "fmt", "./...")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("go fmt failed: %v\n%s", err, string(out))
+	} else {
+		log.Println("go fmt passed")
+	}
+
+
+	// Run go mod tidy
+	cmd = exec.Command("go", "mod", "tidy")
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("go mod tidy failed: %v\n%s", err, string(out))
+	} else {
+		log.Println("go mod tidy passed")
+	}
+
+	// Run golangci-lint
+	cmd = exec.Command("./bin/golangci-lint", "run")
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+        log.Printf("golangci-lint failed: %v\n%s", err, string(out))
+		fmt.Printf("golangci-lint failed: %v\n%s", err, string(out))
+		return // Exit if lint fails
+	}
+	log.Println("golangci-lint passed")
+
+
+	// Run go test
+	cmd = exec.Command("go", "test", "./...")
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("go test failed: %v\n%s", err, string(out))
+		fmt.Printf("go test failed: %v\n%s", err, string(out))
+		return // Exit if tests fail
+	}
+    log.Println("go test passed")
+
 
 	r := mux.NewRouter()
 
