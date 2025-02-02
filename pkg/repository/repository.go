@@ -7,6 +7,7 @@ import (
 	"genai"
 	"genai/tools"
 	"log"
+	"os/exec"
 	"strings"
 	"time"
 
@@ -316,6 +317,37 @@ func (r *Repository) generateFromIssue(aiService *genai.Provider, issue *Issue) 
 	// block until generation is complete
 	// this will also stop the chat
 	chat.Done <- true
+
+	// code validation
+	cmd := exec.Command("go", "fmt", "./...")
+	cmd.Dir = r.Path
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("go fmt failed: %s, %s", err, string(out))
+	}
+
+	cmd = exec.Command("go", "mod", "tidy")
+	cmd.Dir = r.Path
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("go mod tidy failed: %s, %s", err, string(out))
+	}
+
+	cmd = exec.Command("./bin/golangci-lint", "run")
+	cmd.Dir = r.Path
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("golangci-lint failed: %s, %s", err, string(out))
+		return fmt.Errorf("golangci-lint failed: %s", string(out))
+	}
+
+	cmd = exec.Command("go", "test", "./...")
+	cmd.Dir = r.Path
+	out, err = cmd.CombinedOutput()
+	if err != nil {
+		log.Printf("go test failed: %s, %s", err, string(out))
+		return fmt.Errorf("go test failed: %s", string(out))
+	}
 
 	return nil
 }
