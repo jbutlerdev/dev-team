@@ -19,9 +19,14 @@ endif
 tidy:
 	go mod tidy
 
+# Run go fmt
+.PHONY: fmt
+fmt:
+	go fmt ./...
+
 # Run linting
 .PHONY: lint
-lint: download-golangci-lint tidy
+lint: download-golangci-lint tidy fmt
 	./bin/golangci-lint run
 
 # Run full test
@@ -35,7 +40,7 @@ air: download-golangci-lint download-air
 	./bin/air
 
 # Build everything
-all: clean test build
+all: clean fmt test build
 
 # Clean build artifacts
 clean:

@@ -75,7 +75,7 @@ func goTest(path string) (string, error) {
 }
 
 func getDeps(path string) (string, error) {
-        cmd := exec.Command("make", "download-golangci-lint")
+	cmd := exec.Command("make", "download-golangci-lint")
 	cmd.Dir = path
 	_, err := cmd.CombinedOutput()
 	if err != nil {
