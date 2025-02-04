@@ -9,19 +9,13 @@ import (
 )
 
 func TestLoadConfig(t *testing.T) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("Error getting user home dir: %v", err)
-	}
-
-	configDir := filepath.Join(homeDir, ".config", "dev-team")
-	configPath := filepath.Join(configDir, "config.json")
+	configPath := filepath.Join("testdata", "config.json")
 
 	// Clean up config file after test
-	defer os.Remove(configPath)
+	defer os.RemoveAll("testdata")
 
 	// Test when config file doesn't exist
-	appState, err := LoadConfig()
+	appState, err := LoadConfig(configPath)
 	if err != nil {
 		t.Fatalf("Error loading config: %v", err)
 	}
@@ -31,13 +25,13 @@ func TestLoadConfig(t *testing.T) {
 	}
 
 	// Test SaveConfig
-	err = SaveConfig()
+	err = SaveConfig(configPath)
 	if err != nil {
 		t.Fatalf("Error saving config: %v", err)
 	}
 
 	// Test when config file exists
-	appState, err = LoadConfig()
+	appState, err = LoadConfig(configPath)
 	if err != nil {
 		t.Fatalf("Error loading config: %v", err)
 	}
@@ -48,22 +42,16 @@ func TestLoadConfig(t *testing.T) {
 }
 
 func TestSaveConfig(t *testing.T) {
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		t.Fatalf("Error getting user home dir: %v", err)
-	}
-
-	configDir := filepath.Join(homeDir, ".config", "dev-team")
-	configPath := filepath.Join(configDir, "config.json")
+	configPath := filepath.Join("testdata", "config.json")
 
 	// Clean up config file after test
-	defer os.Remove(configPath)
+	defer os.RemoveAll("testdata")
 
 	// Create a dummy state
 	state.State = &state.AppState{}
 
 	// Save the config
-	err = SaveConfig()
+	err := SaveConfig(configPath)
 	if err != nil {
 		t.Fatalf("Error saving config: %v", err)
 	}

@@ -35,11 +35,11 @@ air: download-golangci-lint download-air
 	./bin/air
 
 # Build everything
-all: clean build
+all: clean test build
 
 # Clean build artifacts
 clean:
-	rm -f dev-team
+	rm -f ./cmd/dev-team/bin/dev-team
 
 # Build backend
 build:
