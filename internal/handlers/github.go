@@ -75,3 +75,77 @@ func HandleGitHubIssues(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 }
+
+func HandleGitHubPullRequestEvent(w http.ResponseWriter, r *http.Request) {
+	var payload map[string]interface{}
+	err := json.NewDecoder(r.Body).Decode(&payload)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error decoding payload: %v", err), http.StatusBadRequest)
+		return
+	}
+
+	action, ok := payload["action"].(string)
+	if !ok {
+		http.Error(w, "Missing action", http.StatusBadRequest)
+		return
+	}
+
+	pr, ok := payload["pull_request"].(map[string]interface{})
+	if !ok {
+		http.Error(w, "Missing pull_request", http.StatusBadRequest)
+		return
+	}
+
+	prIDFloat, ok := pr["id"].(float64)
+	if !ok {
+		http.Error(w, "Missing pull_request ID", http.StatusBadRequest)
+		return
+	}
+	prID := int64(prIDFloat)
+
+	state.State.Mu.Lock()
+	defer state.State.Mu.Unlock()
+
+	if state.State.TrackedPullRequests == nil {
+		state.State.TrackedPullRequests = make(map[int64]bool)
+	}
+
+	switch action {
+	case "labeled":
+		label, ok := payload["label"].(map[string]interface{})
+		if !ok {
+			http.Error(w, "Missing label", http.StatusBadRequest)
+			return
+		}
+		labelName, ok := label["name"].(string)
+		if !ok {
+			http.Error(w, "Missing label name", http.StatusBadRequest)
+			return
+		}
+		if labelName == "dev-team" {
+			state.State.TrackedPullRequests[prID] = true
+		}
+	case "unlabeled":
+		label, ok := payload["label"].(map[string]interface{})
+		if !ok {
+			http.Error(w, "Missing label", http.StatusBadRequest)
+			return
+		}
+		labelName, ok := label["name"].(string)
+		if !ok {
+			http.Error(w, "Missing label name", http.StatusBadRequest)
+			return
+		}
+		if labelName == "dev-team" {
+			delete(state.State.TrackedPullRequests, prID)
+		}
+	case "closed", "merged":
+		delete(state.State.TrackedPullRequests, prID)
+	case "opened", "synchronize":
+		// do nothing
+	default:
+		fmt.Printf("Unhandled pull request event action: %s\n", action)
+	}
+
+	w.WriteHeader(http.StatusOK)
+}

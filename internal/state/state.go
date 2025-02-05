@@ -12,9 +12,10 @@ import (
 var State *AppState
 
 type AppState struct {
-	Repositories map[string]*repository.Repository `json:"repositories"`
-	Settings     settings.Settings                 `json:"settings"`
-	Scheduler    *scheduler.Scheduler
-	Mu           sync.RWMutex
-	GenAI        *genai.Provider
+	Repositories        map[string]*repository.Repository `json:"repositories"`
+	Settings            settings.Settings                 `json:"settings"`
+	Scheduler           *scheduler.Scheduler
+	Mu                  sync.RWMutex
+	GenAI               *genai.Provider
+	TrackedPullRequests map[int64]bool `json:"tracked_pull_requests"`
 }
