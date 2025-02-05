@@ -17,4 +17,5 @@ type AppState struct {
 	Scheduler    *scheduler.Scheduler
 	Mu           sync.RWMutex
 	GenAI        *genai.Provider
+	TrackedPRs   map[int]interface{} `json:"tracked_prs"`
 }

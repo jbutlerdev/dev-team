@@ -269,3 +269,77 @@ func getLinkedIssueURLs(body string) []string {
 	}
 	return urls
 }
+
+func AddCommitToPR(owner, repo string, prNumber int, githubToken, message string) error {
+	ctx := context.Background()
+	client := newGitHubClient(ctx, githubToken)
+
+	// Get the pull request
+	pr, _, err := client.PullRequests.Get(ctx, owner, repo, prNumber)
+	if err != nil {
+		return fmt.Errorf("error getting pull request: %v", err)
+	}
+
+	// Get the base branch
+	baseBranch := pr.GetBase().GetRef()
+
+	// Get the SHA of the last commit on the base branch
+	baseBranchRef, _, err := client.Git.GetRef(ctx, owner, repo, "refs/heads/"+baseBranch)
+	if err != nil {
+		return fmt.Errorf("error getting base branch ref: %v", err)
+	}
+
+	baseTreeSHA := baseBranchRef.GetObject().GetSHA()
+
+	// Create a new tree with the changes
+
+	// Create a new blob with the commit message
+	blob, _, err := client.Git.CreateBlob(ctx, owner, repo, &github.Blob{
+		Content:  github.String(message),
+		Encoding: github.String("utf-8"),
+	})
+	if err != nil {
+		return fmt.Errorf("error creating blob: %v", err)
+	}
+
+	// Create a tree entry for the blob
+	treeEntry := &github.TreeEntry{
+		Path: github.String("comment.txt"), // arbitrary file name
+		Mode: github.String("100644"),      // blob (file)
+		Type: github.String("blob"),
+		SHA:  github.String(blob.GetSHA()),
+	}
+
+	// Create a new tree with the tree entry
+	tree, _, err := client.Git.CreateTree(ctx, owner, repo, baseTreeSHA, []*github.TreeEntry{treeEntry})
+	if err != nil {
+		return fmt.Errorf("error creating tree: %v", err)
+	}
+
+	// Create a new commit
+	commit := &github.Commit{
+		Message: github.String(message),
+		Tree:    tree,
+		Parents: []*github.Commit{{SHA: github.String(baseTreeSHA)}},
+	}
+
+	newCommit, _, err := client.Git.CreateCommit(ctx, owner, repo, commit, nil)
+	if err != nil {
+		return fmt.Errorf("error creating commit: %v", err)
+	}
+
+	// Update the pull request head to the new commit
+	ref := &github.Reference{
+		Ref: github.String("refs/heads/" + pr.GetHead().GetRef()),
+		Object: &github.GitObject{
+			SHA: github.String(newCommit.GetSHA()),
+		},
+	}
+
+	_, _, err = client.Git.UpdateRef(ctx, owner, repo, ref, false)
+	if err != nil {
+		return fmt.Errorf("error updating ref: %v", err)
+	}
+
+	return nil
+}
