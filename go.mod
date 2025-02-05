@@ -4,6 +4,7 @@ go 1.22.4
 
 require (
 	github.com/go-git/go-git/v5 v5.13.2
+	github.com/google/go-github/v53 v53.2.0
 	github.com/google/go-github/v60 v60.0.0
 	github.com/gorilla/mux v1.8.1
 	github.com/jbutlerdev/genai v0.0.0-20250203230504-b181adf3cd9a

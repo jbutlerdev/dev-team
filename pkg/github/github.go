@@ -2,13 +2,19 @@ package github
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
 	"fmt"
+	"io"
 	"log"
+	"net/http"
 	"regexp"
 	"strings"
 
 	"github.com/go-git/go-git/v5"
-	"github.com/google/go-github/v60/github"
+	githubv60 "github.com/google/go-github/v60/github"
 	"golang.org/x/oauth2"
 )
 
@@ -66,12 +72,12 @@ type IssueEvent struct {
 
 var re = regexp.MustCompile(`<!--(.*?)-->`)
 
-func newGitHubClient(ctx context.Context, token string) *github.Client {
+func newGitHubClient(ctx context.Context, token string) *githubv60.Client {
 	ts := oauth2.StaticTokenSource(
 		&oauth2.Token{AccessToken: token},
 	)
 	tc := oauth2.NewClient(ctx, ts)
-	return github.NewClient(tc)
+	return githubv60.NewClient(tc)
 }
 
 func CreateDraftPR(path string, githubToken string, input GitHubPRInput) error {
@@ -104,13 +110,13 @@ func CreateDraftPR(path string, githubToken string, input GitHubPRInput) error {
 		return fmt.Errorf("GitHub token not provided in settings")
 	}
 
-	newPR := &github.NewPullRequest{
-		Title:               github.String(input.Title),
-		Head:                github.String(input.Branch),
-		Base:                github.String(input.Base),
-		Body:                github.String(input.Description),
-		Draft:               github.Bool(input.Draft),
-		MaintainerCanModify: github.Bool(input.MaintainerCanModify),
+	newPR := &githubv60.NewPullRequest{
+		Title:               githubv60.String(input.Title),
+		Head:                githubv60.String(input.Branch),
+		Base:                githubv60.String(input.Base),
+		Body:                githubv60.String(input.Description),
+		Draft:               githubv60.Bool(input.Draft),
+		MaintainerCanModify: githubv60.Bool(input.MaintainerCanModify),
 	}
 
 	pr, _, err := client.PullRequests.Create(ctx, owner, repoName, newPR)
@@ -132,9 +138,9 @@ func FetchRepositories(githubToken string) ([]Repository, error) {
 	ctx := context.Background()
 	client := newGitHubClient(ctx, githubToken)
 
-	opt := &github.RepositoryListByAuthenticatedUserOptions{
+	opt := &githubv60.RepositoryListByAuthenticatedUserOptions{
 		Sort: "updated",
-		ListOptions: github.ListOptions{
+		ListOptions: githubv60.ListOptions{
 			PerPage: 100,
 		},
 	}
@@ -175,10 +181,10 @@ func FetchIssues(remotePath, label, githubToken string) ([]Issue, error) {
 	owner := parts[0]
 	repo := parts[1]
 
-	opt := &github.IssueListByRepoOptions{
+	opt := &githubv60.IssueListByRepoOptions{
 		Labels: []string{label},
 		State:  "open",
-		ListOptions: github.ListOptions{
+		ListOptions: githubv60.ListOptions{
 			PerPage: 100,
 		},
 	}
@@ -222,9 +228,9 @@ func FetchPullRequests(remotePath, label, githubToken string) ([]PullRequest, er
 	owner := parts[0]
 	repo := parts[1]
 
-	opt := &github.PullRequestListOptions{
+	opt := &githubv60.PullRequestListOptions{
 		State: "open",
-		ListOptions: github.ListOptions{
+		ListOptions: githubv60.ListOptions{
 			PerPage: 100,
 		},
 	}
@@ -268,4 +274,103 @@ func getLinkedIssueURLs(body string) []string {
 		urls[i] = match
 	}
 	return urls
+}
+
+// AddCommitToPullRequest adds a commit to a pull request.
+func AddCommitToPullRequest(githubToken string, owner string, repo string, pullRequestNumber int, commitMessage string, content string, path string, branch string) error {
+	if githubToken == "" {
+		return fmt.Errorf("GitHub token not provided in settings")
+	}
+
+	ctx := context.Background()
+	client := newGitHubClient(ctx, githubToken)
+
+	// Get the pull request.
+	_, _, err := client.PullRequests.Get(ctx, owner, repo, pullRequestNumber)
+	if err != nil {
+		return fmt.Errorf("error getting pull request: %v", err)
+	}
+
+	// Get the branch's reference.
+	reference, _, err := client.Git.GetRef(ctx, owner, repo, "refs/heads/"+branch)
+	if err != nil {
+		return fmt.Errorf("error getting reference: %v", err)
+	}
+
+	// Get the commit.
+	commit, _, err := client.Git.GetCommit(ctx, owner, repo, reference.GetObject().GetSHA())
+	if err != nil {
+		return fmt.Errorf("error getting commit: %v", err)
+	}
+
+	// Create a tree.
+
+	// Create a blob.
+	blob, _, err := client.Git.CreateBlob(ctx, owner, repo, &githubv60.Blob{Content: githubv60.String(content), Encoding: githubv60.String("utf-8")})
+	if err != nil {
+		return fmt.Errorf("error getting blob: %v", err)
+	}
+
+	// Create a tree entry.
+	treeEntry := githubv60.TreeEntry{Path: githubv60.String(path), Type: githubv60.String("blob"), SHA: blob.SHA, Mode: githubv60.String("100644")}
+
+	entries := []*githubv60.TreeEntry{&treeEntry}
+
+	newTree, _, err := client.Git.CreateTree(ctx, owner, repo, commit.GetTree().GetSHA(), entries)
+	if err != nil {
+		return fmt.Errorf("error creating tree: %v", err)
+	}
+
+	// Create a commit.
+
+	newCommit := &githubv60.Commit{
+		Message: githubv60.String(commitMessage),
+		Tree:    newTree,
+		Parents: []*githubv60.Commit{&githubv60.Commit{SHA: commit.SHA}},
+	}
+
+	commitResponse, _, err := client.Git.CreateCommit(ctx, owner, repo, newCommit, &githubv60.CreateCommitOptions{})
+	if err != nil {
+		return fmt.Errorf("error creating commit: %v", err)
+	}
+
+	// Update the reference.
+
+	newReference := &githubv60.Reference{
+		Ref: githubv60.String("refs/heads/" + branch),
+		Object: &githubv60.GitObject{
+			Type: githubv60.String("commit"),
+			SHA:  commitResponse.SHA,
+		},
+	}
+
+	_, _, err = client.Git.UpdateRef(ctx, owner, repo, newReference, false)
+	if err != nil {
+		return fmt.Errorf("error updating reference: %v", err)
+	}
+
+	return nil
+}
+
+// ValidateWebhook validates the webhook signature.
+func ValidateWebhook(r *http.Request, secret string) ([]byte, error) {
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	signature := r.Header.Get("X-Hub-Signature-256")
+	if signature == "" {
+		return nil, errors.New("X-Hub-Signature-256 header is missing")
+	}
+
+	hmacValue := hmac.New(sha256.New, []byte(secret))
+	hmacValue.Write(body)
+	expectedSignature := "sha256=" + hex.EncodeToString(hmacValue.Sum(nil))
+
+	if !hmac.Equal([]byte(signature), []byte(expectedSignature)) {
+		return nil, errors.New("invalid signature")
+	}
+
+	return body, nil
 }
