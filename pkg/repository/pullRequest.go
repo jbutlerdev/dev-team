@@ -45,8 +45,10 @@ func (r *Repository) UpdatePullRequests(token string) error {
 	// reset tracked pull requests
 	r.PullRequests = make(map[int]*PullRequest)
 	for _, pullRequest := range pullRequests {
-		r.PullRequests[pullRequest.Number] = ghPullRequestToPullRequest(pullRequest)
+		pr := ghPullRequestToPullRequest(pullRequest)
+		r.PullRequests[pullRequest.Number] = pr
 	}
+
 	return nil
 }
 

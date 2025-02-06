@@ -252,7 +252,18 @@ func FetchPullRequests(remotePath, label, githubToken string) ([]PullRequest, er
 		for i, label := range pullRequest.Labels {
 			pr.Labels[i] = label.GetName()
 		}
-		pullRequests = append(pullRequests, pr)
+
+		// Filter by label
+		hasDevTeamLabel := false
+		for _, l := range pr.Labels {
+			if l == label {
+				hasDevTeamLabel = true
+				break
+			}
+		}
+		if hasDevTeamLabel {
+			pullRequests = append(pullRequests, pr)
+		}
 	}
 
 	return pullRequests, nil

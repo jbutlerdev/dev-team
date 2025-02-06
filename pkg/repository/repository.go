@@ -6,15 +6,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/jbutlerdev/dev-team/pkg/auth"
-	"github.com/jbutlerdev/dev-team/pkg/github"
-
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing/object"
+	"github.com/jbutlerdev/dev-team/pkg/auth"
 
 	"github.com/jbutlerdev/genai"
-	"github.com/jbutlerdev/genai/tools"
 )
 
 // set static model const until agent is implemented
@@ -27,7 +24,7 @@ type Repository struct {
 	State        *Status              `json:"status,omitempty"`
 	Issues       map[int]*Issue       `json:"issues,omitempty"`
 	PullRequests map[int]*PullRequest `json:"pullRequests,omitempty"`
-	RemotePath   string               `json:"remotePath,omitempty"`
+	RemotePath   string               `json:"remotePath"`
 }
 
 type Changes struct {
@@ -166,11 +163,6 @@ func (r *Repository) Sync(aiService *genai.Provider, token string) error {
 	}
 
 	// get latest pull requests
-	err = r.UpdatePullRequests(token)
-	if err != nil {
-		log.Printf("Error updating pull requests: %v", err)
-		return err
-	}
 
 	// get latest issues
 	err = r.UpdateIssues(token)
@@ -210,11 +202,6 @@ func (r *Repository) Sync(aiService *genai.Provider, token string) error {
 		}
 
 		log.Println("Starting generation")
-		err = r.generateFromIssue(aiService, currentIssue)
-		if err != nil {
-			log.Printf("Error generating changes: %v", err)
-			return err
-		}
 
 		// validate that generation resulted in changes
 		err = r.UpdateStatus()
@@ -226,11 +213,6 @@ func (r *Repository) Sync(aiService *genai.Provider, token string) error {
 		if !r.State.HasChanges {
 			log.Printf("No changes found, expected changes from AI")
 			return fmt.Errorf("no changes found, expected changes from AI")
-		}
-		err = r.createPR(aiService, currentIssue, token)
-		if err != nil {
-			log.Printf("Error creating PR: %v", err)
-			return err
 		}
 	}
 	return nil
@@ -298,98 +280,4 @@ func (r *Repository) getChanges() (*Changes, error) {
 		Commits: commits,
 		Summary: fmt.Sprintf("Changed files:\n%v\n\nCommits:\n%v", files, commits),
 	}, nil
-}
-
-func (r *Repository) generateFromIssue(aiService *genai.Provider, issue *Issue) error {
-	// generate changes for issue
-	toolsToUse, err := tools.GetTools([]string{"writeFile", "tree", "readFile"})
-	if err != nil {
-		log.Printf("Error getting tools: %v", err)
-		return err
-	}
-	for _, tool := range toolsToUse {
-		tool.Options["basePath"] = r.Path
-	}
-	chat := aiService.Chat(MODEL, toolsToUse)
-
-	go func() {
-		for response := range chat.Recv {
-			log.Printf("Response: %v", response)
-		}
-	}()
-
-	chat.Send <- IssuePrompt(issue.ToString())
-	defer func() {
-		chat.Done <- true
-	}()
-	// block until generation is complete
-	<-chat.GenerationComplete
-	// validate output
-	err = r.validateOutput(&ValidationInput{
-		attempts:    10,
-		validations: []func(string) (string, error){getDeps, goFmt, goModTidy, golangciLint, goTest},
-		send:        chat.Send,
-		done:        chat.GenerationComplete,
-	})
-	if err != nil {
-		log.Printf("Error validating output: %v", err)
-		return err
-	}
-
-	return nil
-}
-
-// ignore unused code error
-func (r *Repository) createPR(aiService *genai.Provider, issue *Issue, token string) error {
-	summary, err := r.ChangeSummary()
-	if err != nil {
-		log.Printf("Error getting change summary: %v", err)
-		return err
-	}
-
-	commitMessage, err := aiService.Generate(MODEL, CommitPrompt(summary))
-	if err != nil {
-		log.Printf("Error generating commit message: %v", err)
-		return err
-	}
-	// Commit changes
-	err = r.Commit(commitMessage)
-	if err != nil {
-		log.Printf("Error committing changes: %v", err)
-		return err
-	}
-
-	// Push changes
-	err = r.Push()
-	if err != nil {
-		log.Printf("Error pushing changes: %v", err)
-		return err
-	}
-
-	prTitle, err := aiService.Generate(MODEL, CommitPrompt(summary))
-	if err != nil {
-		log.Printf("Error generating PR title: %v", err)
-		return err
-	}
-
-	prDescription, err := aiService.Generate(MODEL, PRPrompt(summary))
-	if err != nil {
-		log.Printf("Error generating PR description: %v", err)
-		return err
-	}
-
-	// add issue close tag to description
-	prDescription = fmt.Sprintf("%s\n\n%s\n<!--%s-->",
-		prDescription,
-		fmt.Sprintf("Closes #%d", issue.ID),
-		issue.SourceURL)
-
-	return github.CreateDraftPR(r.Path, token, github.GitHubPRInput{
-		Title:               prTitle,
-		Branch:              r.State.CurrentBranch,
-		Base:                "main",
-		Description:         prDescription,
-		Draft:               true,
-		MaintainerCanModify: true,
-	})
 }
