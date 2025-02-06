@@ -158,6 +158,12 @@ func (r *Repository) Fetch() error {
 	return nil
 }
 
+// Placeholder for AI model integration
+func processCommentWithAI(commentBody string) (string, error) {
+	// Replace this with actual AI model integration
+	return fmt.Sprintf("AI response to comment: %s", commentBody), nil
+}
+
 func (r *Repository) Sync(aiService *genai.Provider, token string) error {
 	err := r.UpdateStatus()
 	if err != nil {
@@ -181,6 +187,43 @@ func (r *Repository) Sync(aiService *genai.Provider, token string) error {
 	// add pull requests to issues
 	for _, issue := range r.Issues {
 		issue.addPullRequests(r.PullRequests)
+	}
+
+	// Iterate through issues and process PR comments
+	for _, issue := range r.Issues {
+		if len(issue.PullRequests) > 0 {
+			for _, pr := range issue.PullRequests {
+				comments, err := github.FetchPullRequestComments(r.RemotePath, pr.Number, token)
+				if err != nil {
+					log.Printf("Error fetching comments for PR %d: %v", pr.Number, err)
+					continue
+				}
+
+				for _, comment := range comments {
+					aiResponse, err := processCommentWithAI(comment.Body)
+					if err != nil {
+						log.Printf("Error processing comment %d with AI: %v", comment.ID, err)
+						continue
+					}
+
+					commitMessage := fmt.Sprintf("Addressing comment %d on PR %d: %s", comment.ID, pr.Number, aiResponse)
+
+					// Commit changes
+					err = r.Commit(commitMessage)
+					if err != nil {
+						log.Printf("Error committing changes: %v", err)
+						continue
+					}
+
+					// Push changes
+					err = r.Push()
+					if err != nil {
+						log.Printf("Error pushing changes: %v", err)
+						continue
+					}
+				}
+			}
+		}
 	}
 
 	// select issue to work on
@@ -386,9 +429,9 @@ func (r *Repository) createPR(aiService *genai.Provider, issue *Issue, token str
 
 	return github.CreateDraftPR(r.Path, token, github.GitHubPRInput{
 		Title:               prTitle,
-		Branch:              r.State.CurrentBranch,
+		Head:                r.State.CurrentBranch,
 		Base:                "main",
-		Description:         prDescription,
+		Body:                prDescription,
 		Draft:               true,
 		MaintainerCanModify: true,
 	})

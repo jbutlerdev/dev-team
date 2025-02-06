@@ -4,12 +4,10 @@ go 1.22.4
 
 require (
 	github.com/go-git/go-git/v5 v5.13.2
-	github.com/google/go-github/v60 v60.0.0
 	github.com/gorilla/mux v1.8.1
 	github.com/jbutlerdev/genai v0.0.0-20250203230504-b181adf3cd9a
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rs/cors v1.11.1
-	golang.org/x/oauth2 v0.25.0
 )
 
 require (
@@ -32,6 +30,7 @@ require (
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/google/generative-ai-go v0.19.0 // indirect
+	github.com/google/go-github/v60 v60.0.0 // indirect
 	github.com/google/go-querystring v1.1.0 // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/uuid v1.6.0 // indirect
@@ -51,6 +50,7 @@ require (
 	golang.org/x/crypto v0.32.0 // indirect
 	golang.org/x/mod v0.17.0 // indirect
 	golang.org/x/net v0.34.0 // indirect
+	golang.org/x/oauth2 v0.25.0 // indirect
 	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/text v0.21.0 // indirect
