@@ -51,7 +51,10 @@ func handleSettingsChange(newSettings settings.Settings) error {
 
 	state.State.Mu.Lock()
 	if refreshAiProvider {
-		genaiProvider, err := genai.NewProvider(newSettings.Provider, newSettings.APIKey)
+		genaiProvider, err := genai.NewProvider(newSettings.Provider, genai.ProviderOptions{
+			APIKey:  newSettings.APIKey,
+			BaseURL: newSettings.Server,
+		})
 		if err != nil {
 			return fmt.Errorf("error initializing GenAI provider: %v", err)
 		}
