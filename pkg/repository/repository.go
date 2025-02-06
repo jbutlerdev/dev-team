@@ -19,16 +19,16 @@ import (
 )
 
 // set static model const until agent is implemented
-const MODEL = "models/gemini-2.0-flash-exp"
+const MODEL = "models/gemini-2.0-flash"
 
 type Repository struct {
-	Path         string               `json:"path"`
-	Schedule     string               `json:"schedule"`
-	LastSync     time.Time            `json:"lastSync"`
-	State        *Status              `json:"status,omitempty"`
-	Issues       map[int]*Issue       `json:"issues,omitempty"`
-	PullRequests map[int]*PullRequest `json:"pullRequests,omitempty"`
-	RemotePath   string               `json:"remotePath,omitempty"`
+	Path         string    `json:"path"`
+	Schedule     string    `json:"schedule"`
+	LastSync     time.Time `json:"lastSync"`
+	State        *Status   `json:"status,omitempty"`
+	RemotePath   string    `json:"remotePath,omitempty"`
+	Issues       map[int]*Issue
+	PullRequests map[int]*PullRequest
 	mu           sync.RWMutex
 	Locked       bool
 	Logger       logr.Logger
