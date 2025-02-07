@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
 
 	"github.com/jbutlerdev/dev-team/internal/config"
 	"github.com/jbutlerdev/dev-team/internal/settings"
@@ -62,7 +64,12 @@ func handleSettingsChange(newSettings settings.Settings) error {
 	}
 	state.State.Settings = newSettings
 	state.State.Mu.Unlock()
-	if err := config.SaveConfig(config.ConfigPath); err != nil {
+	configPath, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	configPath = filepath.Join(configPath, config.ConfigPath)
+	if err := config.SaveConfig(configPath); err != nil {
 		return fmt.Errorf("error saving config: %v", err)
 	}
 	return nil
