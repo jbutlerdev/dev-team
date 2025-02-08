@@ -45,16 +45,24 @@ type Issue struct {
 }
 
 type PullRequest struct {
-	Number          int      `json:"number"`
-	Title           string   `json:"title"`
-	Body            string   `json:"body"`
-	State           string   `json:"state"`
-	HTMLURL         string   `json:"html_url"`
-	Labels          []string `json:"labels"`
-	IssueURL        string   `json:"issue_url"`
-	CreatedAt       string   `json:"created_at"`
-	UpdatedAt       string   `json:"updated_at"`
-	LinkedIssueURLs []string `json:"linked_issue_urls"`
+	Number          int       `json:"number"`
+	Title           string    `json:"title"`
+	Body            string    `json:"body"`
+	State           string    `json:"state"`
+	HTMLURL         string    `json:"html_url"`
+	Labels          []string  `json:"labels"`
+	IssueURL        string    `json:"issue_url"`
+	CreatedAt       string    `json:"created_at"`
+	UpdatedAt       string    `json:"updated_at"`
+	LinkedIssueURLs []string  `json:"linked_issue_urls"`
+	Comments        []Comment `json:"comments"` // Add this line
+}
+
+type Comment struct {
+	ID      int64  `json:"id"`
+	Body    string `json:"body"`
+	HTMLURL string `json:"html_url"`
+	UserID  int64  `json:"user_id"`
 }
 
 type IssueEvent struct {
@@ -248,14 +256,50 @@ func FetchPullRequests(remotePath, label, githubToken string) ([]PullRequest, er
 			CreatedAt:       pullRequest.GetCreatedAt().String(),
 			UpdatedAt:       pullRequest.GetUpdatedAt().String(),
 			LinkedIssueURLs: getLinkedIssueURLs(pullRequest.GetBody()),
+			Comments:        []Comment{}, // Initialize the comments slice
 		}
 		for i, label := range pullRequest.Labels {
 			pr.Labels[i] = label.GetName()
 		}
+
+		// Fetch comments for the pull request
+		comments, err := FetchComments(ctx, client, owner, repo, pullRequest.GetNumber())
+		if err != nil {
+			log.Printf("Error fetching comments for PR %d: %v", pullRequest.GetNumber(), err)
+			// Don't return, just log the error and continue
+		}
+		pr.Comments = comments
+
 		pullRequests = append(pullRequests, pr)
 	}
 
 	return pullRequests, nil
+}
+
+func FetchComments(ctx context.Context, client *github.Client, owner, repo string, prNumber int) ([]Comment, error) {
+	opt := &github.IssueListCommentsOptions{
+		ListOptions: github.ListOptions{
+			PerPage: 100,
+		},
+	}
+
+	ghComments, _, err := client.Issues.ListComments(ctx, owner, repo, prNumber, opt)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching comments: %v", err)
+	}
+
+	var comments []Comment
+	for _, comment := range ghComments {
+		c := Comment{
+			ID:      comment.GetID(),
+			Body:    comment.GetBody(),
+			HTMLURL: comment.GetHTMLURL(),
+			UserID:  comment.GetUser().GetID(),
+		}
+		comments = append(comments, c)
+	}
+
+	return comments, nil
 }
 
 func getLinkedIssueURLs(body string) []string {
