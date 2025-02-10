@@ -2,6 +2,7 @@ package repository
 
 import (
 	"fmt"
+	"log"
 	"strings"
 	"sync"
 	"time"
@@ -184,6 +185,10 @@ func (r *Repository) Sync(aiService *genai.Provider, token string) error {
 	if err != nil {
 		r.Logger.Error(err, "Error updating pull requests")
 		return err
+	}
+
+	for _, pr := range r.PullRequests {
+		log.Printf("PR: %d, Comments: %v", pr.Number, pr.Comments)
 	}
 
 	// get latest issues

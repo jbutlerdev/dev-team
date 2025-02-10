@@ -8,21 +8,22 @@ import (
 )
 
 type PullRequest struct {
-	Number          int      `json:"number"`
-	Title           string   `json:"title"`
-	Body            string   `json:"body"`
-	CreatedAt       string   `json:"created_at"`
-	UpdatedAt       string   `json:"updated_at"`
-	Labels          []string `json:"labels"`
-	IssueUrl        string   `json:"issue_url"`
-	LinkedIssueUrls []string `json:"linked_issue_urls"`
+	Number          int       `json:"number"`
+	Title           string    `json:"title"`
+	Body            string    `json:"body"`
+	CreatedAt       string    `json:"created_at"`
+	UpdatedAt       string    `json:"updated_at"`
+	Labels          []string  `json:"labels"`
+	IssueUrl        string    `json:"issue_url"`
+	LinkedIssueUrls []string  `json:"linked_issue_urls"`
+	Comments        []Comment `json:"comments"`
 }
 
 type Comment struct {
-	ID        string `json:"id"`
-	Body      string `json:"body"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ID      int64  `json:"id"`
+	Body    string `json:"body"`
+	HTMLURL string `json:"html_url"`
+	UserID  int64  `json:"user_id"`
 }
 
 func (r *Repository) GetPullRequests() []*PullRequest {
@@ -60,5 +61,19 @@ func ghPullRequestToPullRequest(pullRequest github.PullRequest) *PullRequest {
 		Labels:          pullRequest.Labels,
 		IssueUrl:        pullRequest.IssueURL,
 		LinkedIssueUrls: pullRequest.LinkedIssueURLs,
+		Comments:        ghCommentsToComments(pullRequest.Comments),
 	}
+}
+
+func ghCommentsToComments(comments []github.Comment) []Comment {
+	pullRequestComments := make([]Comment, 0, len(comments))
+	for _, comment := range comments {
+		pullRequestComments = append(pullRequestComments, Comment{
+			ID:      comment.ID,
+			Body:    comment.Body,
+			HTMLURL: comment.HTMLURL,
+			UserID:  comment.UserID,
+		})
+	}
+	return pullRequestComments
 }

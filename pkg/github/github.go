@@ -277,13 +277,13 @@ func FetchPullRequests(remotePath, label, githubToken string) ([]PullRequest, er
 }
 
 func FetchComments(ctx context.Context, client *github.Client, owner, repo string, prNumber int) ([]Comment, error) {
-	opt := &github.IssueListCommentsOptions{
+	opt := &github.PullRequestListCommentsOptions{
 		ListOptions: github.ListOptions{
 			PerPage: 100,
 		},
 	}
 
-	ghComments, _, err := client.Issues.ListComments(ctx, owner, repo, prNumber, opt)
+	ghComments, _, err := client.PullRequests.ListComments(ctx, owner, repo, prNumber, opt)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching comments: %v", err)
 	}
