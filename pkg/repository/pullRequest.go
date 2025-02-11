@@ -16,14 +16,36 @@ type PullRequest struct {
 	Labels          []string  `json:"labels"`
 	IssueUrl        string    `json:"issue_url"`
 	LinkedIssueUrls []string  `json:"linked_issue_urls"`
+	Diff            string    `json:"diff"`
 	Comments        []Comment `json:"comments"`
 }
 
 type Comment struct {
-	ID      int64  `json:"id"`
-	Body    string `json:"body"`
-	HTMLURL string `json:"html_url"`
-	UserID  int64  `json:"user_id"`
+	ID           int64  `json:"id"`
+	Body         string `json:"body"`
+	DiffHunk     string `json:"diff_hunk"`
+	HTMLURL      string `json:"html_url"`
+	URL          string `json:"url"`
+	UserID       int64  `json:"user_id"`
+	Acknowledged bool   `json:"acknowledged"`
+}
+
+func (p *PullRequest) HasUnresolvedComments() bool {
+	for _, comment := range p.Comments {
+		if !comment.Acknowledged {
+			return true
+		}
+	}
+	return false
+}
+
+func (p *PullRequest) FirstUnresolvedComment() Comment {
+	for _, comment := range p.Comments {
+		if !comment.Acknowledged {
+			return comment
+		}
+	}
+	return Comment{}
 }
 
 func (r *Repository) GetPullRequests() []*PullRequest {
@@ -61,6 +83,7 @@ func ghPullRequestToPullRequest(pullRequest github.PullRequest) *PullRequest {
 		Labels:          pullRequest.Labels,
 		IssueUrl:        pullRequest.IssueURL,
 		LinkedIssueUrls: pullRequest.LinkedIssueURLs,
+		Diff:            pullRequest.Diff,
 		Comments:        ghCommentsToComments(pullRequest.Comments),
 	}
 }
@@ -69,10 +92,13 @@ func ghCommentsToComments(comments []github.Comment) []Comment {
 	pullRequestComments := make([]Comment, 0, len(comments))
 	for _, comment := range comments {
 		pullRequestComments = append(pullRequestComments, Comment{
-			ID:      comment.ID,
-			Body:    comment.Body,
-			HTMLURL: comment.HTMLURL,
-			UserID:  comment.UserID,
+			ID:           comment.ID,
+			Body:         comment.Body,
+			DiffHunk:     comment.DiffHunk,
+			HTMLURL:      comment.HTMLURL,
+			URL:          comment.URL,
+			UserID:       comment.UserID,
+			Acknowledged: comment.Reactions.PlusOne > 0,
 		})
 	}
 	return pullRequestComments

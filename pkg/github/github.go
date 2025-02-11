@@ -55,21 +55,8 @@ type PullRequest struct {
 	CreatedAt       string    `json:"created_at"`
 	UpdatedAt       string    `json:"updated_at"`
 	LinkedIssueURLs []string  `json:"linked_issue_urls"`
-	Comments        []Comment `json:"comments"` // Add this line
-}
-
-type Comment struct {
-	ID      int64  `json:"id"`
-	Body    string `json:"body"`
-	HTMLURL string `json:"html_url"`
-	UserID  int64  `json:"user_id"`
-}
-
-type IssueEvent struct {
-	Event     string `json:"event"`
-	CreatedAt string `json:"created_at"`
-	PRNumber  int    `json:"pr_number,omitempty"`
-	PRURL     string `json:"pr_url,omitempty"`
+	Diff            string    `json:"diff"`
+	Comments        []Comment `json:"comments"`
 }
 
 var re = regexp.MustCompile(`<!--(.*?)-->`)
@@ -256,7 +243,7 @@ func FetchPullRequests(remotePath, label, githubToken string) ([]PullRequest, er
 			CreatedAt:       pullRequest.GetCreatedAt().String(),
 			UpdatedAt:       pullRequest.GetUpdatedAt().String(),
 			LinkedIssueURLs: getLinkedIssueURLs(pullRequest.GetBody()),
-			Comments:        []Comment{}, // Initialize the comments slice
+			Comments:        []Comment{},
 		}
 		for i, label := range pullRequest.Labels {
 			pr.Labels[i] = label.GetName()
@@ -270,36 +257,25 @@ func FetchPullRequests(remotePath, label, githubToken string) ([]PullRequest, er
 		}
 		pr.Comments = comments
 
+		diff, err := FetchDiffs(ctx, client, owner, repo, pullRequest.GetNumber())
+		if err != nil {
+			log.Printf("Error fetching diffs for PR %d: %v", pullRequest.GetNumber(), err)
+			// Don't return, just log the error and continue
+		}
+		pr.Diff = diff
+
 		pullRequests = append(pullRequests, pr)
 	}
 
 	return pullRequests, nil
 }
 
-func FetchComments(ctx context.Context, client *github.Client, owner, repo string, prNumber int) ([]Comment, error) {
-	opt := &github.PullRequestListCommentsOptions{
-		ListOptions: github.ListOptions{
-			PerPage: 100,
-		},
-	}
-
-	ghComments, _, err := client.PullRequests.ListComments(ctx, owner, repo, prNumber, opt)
+func FetchDiffs(ctx context.Context, client *github.Client, owner, repo string, resourceID int) (string, error) {
+	diff, _, err := client.PullRequests.GetRaw(ctx, owner, repo, resourceID, github.RawOptions{Type: github.Diff})
 	if err != nil {
-		return nil, fmt.Errorf("error fetching comments: %v", err)
+		return "", fmt.Errorf("failed to get pull request diff: %w", err)
 	}
-
-	var comments []Comment
-	for _, comment := range ghComments {
-		c := Comment{
-			ID:      comment.GetID(),
-			Body:    comment.GetBody(),
-			HTMLURL: comment.GetHTMLURL(),
-			UserID:  comment.GetUser().GetID(),
-		}
-		comments = append(comments, c)
-	}
-
-	return comments, nil
+	return diff, nil
 }
 
 func getLinkedIssueURLs(body string) []string {
