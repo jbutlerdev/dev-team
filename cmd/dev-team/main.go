@@ -12,6 +12,7 @@ import (
 	"github.com/jbutlerdev/dev-team/internal/settings"
 	"github.com/jbutlerdev/dev-team/internal/state"
 	"github.com/jbutlerdev/dev-team/pkg/log"
+	"github.com/jbutlerdev/dev-team/pkg/remote"
 	"github.com/jbutlerdev/dev-team/pkg/repository"
 
 	"github.com/jbutlerdev/genai"
@@ -55,6 +56,13 @@ func main() {
 		l.Error(err, "Error loading config")
 	}
 
+	// Create a global remote GitHub provider
+	globalGH := remote.New(remote.ProviderOptions{
+		Type:        remote.GITHUB,
+		GitHubToken: appState.Settings.GitHubToken,
+	})
+	appState.Remote = globalGH
+
 	// Initialize GenAI provider
 	genaiProvider, err := genai.NewProviderWithLog(
 		appState.Settings.Provider,
@@ -81,7 +89,6 @@ func main() {
 	api.HandleFunc("/repositories/clone", handlers.HandleCloneRepository).Methods("POST")
 	api.HandleFunc("/repositories/commit", handlers.HandleCommit).Methods("POST")
 	api.HandleFunc("/repositories/push", handlers.HandlePush).Methods("POST")
-	api.HandleFunc("/repositories/pr", handlers.HandleCreatePR).Methods("POST")
 	api.HandleFunc("/repositories/sync", handlers.HandleSyncRepository).Methods("POST")
 	api.HandleFunc("/settings", handlers.HandleGetSettings).Methods("GET")
 	api.HandleFunc("/settings", handlers.HandleUpdateSettings).Methods("POST")

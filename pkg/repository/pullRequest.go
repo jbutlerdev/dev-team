@@ -4,30 +4,30 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/jbutlerdev/dev-team/pkg/github"
+	"github.com/jbutlerdev/dev-team/pkg/remote/github"
 )
 
 type PullRequest struct {
-	Number          int       `json:"number"`
-	Title           string    `json:"title"`
-	Body            string    `json:"body"`
-	CreatedAt       string    `json:"created_at"`
-	UpdatedAt       string    `json:"updated_at"`
-	Labels          []string  `json:"labels"`
-	IssueUrl        string    `json:"issue_url"`
-	LinkedIssueUrls []string  `json:"linked_issue_urls"`
-	Diff            string    `json:"diff"`
-	Comments        []Comment `json:"comments"`
+	Number          int
+	Title           string
+	Body            string
+	CreatedAt       string
+	UpdatedAt       string
+	Labels          []string
+	IssueUrl        string
+	LinkedIssueUrls []string
+	Diff            string
+	Comments        []Comment
 }
 
 type Comment struct {
-	ID           int64  `json:"id"`
-	Body         string `json:"body"`
-	DiffHunk     string `json:"diff_hunk"`
-	HTMLURL      string `json:"html_url"`
-	URL          string `json:"url"`
-	UserID       int64  `json:"user_id"`
-	Acknowledged bool   `json:"acknowledged"`
+	ID           int64
+	Body         string
+	DiffHunk     string
+	HTMLURL      string
+	URL          string
+	UserID       int64
+	Acknowledged bool
 }
 
 func (p *PullRequest) HasUnresolvedComments() bool {
@@ -60,7 +60,7 @@ func (r *Repository) UpdatePullRequests(token string) error {
 	if r.RemotePath == "" {
 		return fmt.Errorf("repository remote path is not set")
 	}
-	pullRequests, err := github.FetchPullRequests(r.RemotePath, "dev-team", token)
+	pullRequests, err := r.Remote.FetchPullRequests(r.RemotePath, "dev-team")
 	if err != nil {
 		log.Printf("Error fetching pull requests: %v, request: %v", err, r.RemotePath)
 		return err

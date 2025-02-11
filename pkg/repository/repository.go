@@ -8,7 +8,8 @@ import (
 
 	"github.com/go-logr/logr"
 	"github.com/jbutlerdev/dev-team/pkg/auth"
-	"github.com/jbutlerdev/dev-team/pkg/github"
+	"github.com/jbutlerdev/dev-team/pkg/remote"
+	"github.com/jbutlerdev/dev-team/pkg/remote/github"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -24,16 +25,18 @@ const MODEL = "models/gemini-2.0-flash"
 // const MODEL = "qwen2.5:7b-instruct-q6_K"
 
 type Repository struct {
-	Path         string    `json:"path"`
-	Schedule     string    `json:"schedule"`
-	LastSync     time.Time `json:"lastSync"`
-	State        *Status   `json:"status,omitempty"`
-	RemotePath   string    `json:"remotePath,omitempty"`
-	Issues       map[int]*Issue
-	PullRequests map[int]*PullRequest
-	mu           sync.RWMutex
-	Locked       bool
-	Logger       logr.Logger
+	Path           string                  `json:"path"`
+	RemoteProvider remote.ProviderSettings `json:"remoteProvider"`
+	Schedule       string                  `json:"schedule"`
+	LastSync       time.Time               `json:"lastSync"`
+	State          *Status                 `json:"status,omitempty"`
+	RemotePath     string                  `json:"remotePath,omitempty"`
+	Issues         map[int]*Issue
+	PullRequests   map[int]*PullRequest
+	mu             sync.RWMutex
+	Locked         bool
+	Logger         logr.Logger
+	Remote         remote.Provider
 }
 
 type Changes struct {
@@ -49,6 +52,21 @@ func NewRepository(path string) *Repository {
 		PullRequests: make(map[int]*PullRequest),
 		mu:           sync.RWMutex{},
 		Locked:       false,
+		Remote: remote.New(remote.ProviderOptions{
+			Type: remote.LOCAL,
+			Path: path,
+		}),
+	}
+}
+
+func NewRepositoryWithRemote(path string, remote remote.Provider) *Repository {
+	return &Repository{
+		Path:         path,
+		Issues:       make(map[int]*Issue),
+		PullRequests: make(map[int]*PullRequest),
+		mu:           sync.RWMutex{},
+		Locked:       false,
+		Remote:       remote,
 	}
 }
 
@@ -223,7 +241,7 @@ func (r *Repository) Sync(aiService *genai.Provider, token string) error {
 		r.State.CurrentBranch = branchName
 
 		r.Logger.Info("Starting generation")
-		err = r.generateFromIssue(aiService, issue, token)
+		err = r.generateFromIssue(aiService, issue)
 		if err != nil {
 			r.Logger.Error(err, "Error generating changes")
 			return err
@@ -240,7 +258,7 @@ func (r *Repository) Sync(aiService *genai.Provider, token string) error {
 			r.Logger.Info("No changes found, expected changes from AI")
 			return fmt.Errorf("no changes found, expected changes from AI")
 		}
-		err = r.createPR(aiService, issue, token)
+		err = r.createPR(aiService, issue)
 		if err != nil {
 			r.Logger.Error(err, "Error creating PR")
 			return err
@@ -313,7 +331,7 @@ func (r *Repository) getChanges() (*Changes, error) {
 	}, nil
 }
 
-func (r *Repository) generateFromIssue(aiService *genai.Provider, issue *Issue, token string) error {
+func (r *Repository) generateFromIssue(aiService *genai.Provider, issue *Issue) error {
 	// generate changes for issue
 	toolsToUse, err := tools.GetTools([]string{"writeFile", "tree", "readFile"})
 	if err != nil {
@@ -363,7 +381,7 @@ func (r *Repository) generateFromIssue(aiService *genai.Provider, issue *Issue, 
 		return err
 	}
 	if unresolvedCommentId != 0 {
-		err = github.AddCommentReaction(r.Path, token, "+1", unresolvedCommentId)
+		err = r.Remote.AddCommentReaction(r.Path, "+1", unresolvedCommentId)
 		if err != nil {
 			r.Logger.Error(err, "Error acknowledging PR comment")
 			return err
@@ -373,7 +391,7 @@ func (r *Repository) generateFromIssue(aiService *genai.Provider, issue *Issue, 
 }
 
 // ignore unused code error
-func (r *Repository) createPR(aiService *genai.Provider, issue *Issue, token string) error {
+func (r *Repository) createPR(aiService *genai.Provider, issue *Issue) error {
 	summary, err := r.ChangeSummary()
 	if err != nil {
 		r.Logger.Error(err, "Error getting change summary")
@@ -416,7 +434,7 @@ func (r *Repository) createPR(aiService *genai.Provider, issue *Issue, token str
 		prDescription,
 		fmt.Sprintf("Closes #%d", issue.ID),
 		issue.SourceURL)
-	return github.CreateDraftPR(r.Path, token, github.GitHubPRInput{
+	return r.Remote.CreateDraftPR(r.Path, github.GitHubPRInput{
 		Title:               prTitle,
 		Branch:              r.State.CurrentBranch,
 		Base:                "main",

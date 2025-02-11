@@ -1,7 +1,6 @@
 package github
 
 import (
-	"context"
 	"fmt"
 	"strings"
 
@@ -35,14 +34,14 @@ type Reactions struct {
 	Eyes       int `json:"eyes,omitempty"`
 }
 
-func FetchComments(ctx context.Context, client *github.Client, owner, repo string, prNumber int) ([]Comment, error) {
+func (p *Provider) FetchComments(owner, repo string, prNumber int) ([]Comment, error) {
 	opt := &github.PullRequestListCommentsOptions{
 		ListOptions: github.ListOptions{
 			PerPage: 100,
 		},
 	}
 
-	ghComments, _, err := client.PullRequests.ListComments(ctx, owner, repo, prNumber, opt)
+	ghComments, _, err := p.Client.PullRequests.ListComments(p.ctx, owner, repo, prNumber, opt)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching comments: %v", err)
 	}
@@ -57,7 +56,7 @@ func FetchComments(ctx context.Context, client *github.Client, owner, repo strin
 			URL:      comment.GetURL(),
 			UserID:   comment.GetUser().GetID(),
 		}
-		reactions, err := FetchPullRequestCommentReactions(ctx, client, owner, repo, comment.GetID())
+		reactions, err := p.FetchPullRequestCommentReactions(owner, repo, comment.GetID())
 		if err != nil {
 			return nil, fmt.Errorf("error fetching reactions: %v", err)
 		}
@@ -68,7 +67,7 @@ func FetchComments(ctx context.Context, client *github.Client, owner, repo strin
 	return comments, nil
 }
 
-func FetchPullRequestCommentReactions(ctx context.Context, client *github.Client, owner, repo string, commentID int64) (Reactions, error) {
+func (p *Provider) FetchPullRequestCommentReactions(owner, repo string, commentID int64) (Reactions, error) {
 	opt := &github.ListCommentReactionOptions{
 		ListOptions: github.ListOptions{
 			PerPage: 100,
@@ -76,7 +75,7 @@ func FetchPullRequestCommentReactions(ctx context.Context, client *github.Client
 	}
 	// add pulls to repo for proper URL
 	repo = repo + "/pulls"
-	ghReactions, _, err := client.Reactions.ListCommentReactions(ctx, owner, repo, commentID, opt)
+	ghReactions, _, err := p.Client.Reactions.ListCommentReactions(p.ctx, owner, repo, commentID, opt)
 	if err != nil {
 		return Reactions{}, fmt.Errorf("error fetching reactions: %v", err)
 	}
@@ -106,10 +105,7 @@ func FetchPullRequestCommentReactions(ctx context.Context, client *github.Client
 	return reactions, nil
 }
 
-func AddCommentReaction(repoPath, githubToken, reaction string, commentID int64) error {
-	ctx := context.Background()
-	client := newGitHubClient(ctx, githubToken)
-
+func (p *Provider) AddCommentReaction(repoPath, reaction string, commentID int64) error {
 	parts := strings.Split(repoPath, "/")
 	if len(parts) < 2 {
 		return fmt.Errorf("invalid repo path format")
@@ -117,7 +113,7 @@ func AddCommentReaction(repoPath, githubToken, reaction string, commentID int64)
 	owner := parts[0]
 	repo := parts[1]
 
-	_, _, err := client.Reactions.CreateCommentReaction(ctx, owner, repo, commentID, reaction)
+	_, _, err := p.Client.Reactions.CreateCommentReaction(p.ctx, owner, repo, commentID, reaction)
 	if err != nil {
 		return fmt.Errorf("error adding reaction: %v", err)
 	}

@@ -69,10 +69,7 @@ func newGitHubClient(ctx context.Context, token string) *github.Client {
 	return github.NewClient(tc)
 }
 
-func CreateDraftPR(path string, githubToken string, input GitHubPRInput) error {
-	ctx := context.Background()
-	client := newGitHubClient(ctx, githubToken)
-
+func (p *Provider) CreateDraftPR(path string, input GitHubPRInput) error {
 	repo, err := git.PlainOpen(path)
 	if err != nil {
 		return err
@@ -95,10 +92,6 @@ func CreateDraftPR(path string, githubToken string, input GitHubPRInput) error {
 		repoName = strings.TrimSuffix(parts[1], ".git")
 	}
 
-	if githubToken == "" {
-		return fmt.Errorf("GitHub token not provided in settings")
-	}
-
 	newPR := &github.NewPullRequest{
 		Title:               github.String(input.Title),
 		Head:                github.String(input.Branch),
@@ -108,7 +101,7 @@ func CreateDraftPR(path string, githubToken string, input GitHubPRInput) error {
 		MaintainerCanModify: github.Bool(input.MaintainerCanModify),
 	}
 
-	pr, _, err := client.PullRequests.Create(ctx, owner, repoName, newPR)
+	pr, _, err := p.Client.PullRequests.Create(p.ctx, owner, repoName, newPR)
 	if err != nil {
 		return fmt.Errorf("error creating PR: %v", err)
 	}
@@ -119,14 +112,7 @@ func CreateDraftPR(path string, githubToken string, input GitHubPRInput) error {
 	return nil
 }
 
-func FetchRepositories(githubToken string) ([]Repository, error) {
-	if githubToken == "" {
-		return nil, fmt.Errorf("GitHub token not provided in settings")
-	}
-
-	ctx := context.Background()
-	client := newGitHubClient(ctx, githubToken)
-
+func (p *Provider) FetchRepositories() ([]Repository, error) {
 	opt := &github.RepositoryListByAuthenticatedUserOptions{
 		Sort: "updated",
 		ListOptions: github.ListOptions{
@@ -134,7 +120,7 @@ func FetchRepositories(githubToken string) ([]Repository, error) {
 		},
 	}
 
-	repos, _, err := client.Repositories.ListByAuthenticatedUser(ctx, opt)
+	repos, _, err := p.Client.Repositories.ListByAuthenticatedUser(p.ctx, opt)
 	if err != nil {
 		return nil, fmt.Errorf("error fetching repositories: %v", err)
 	}
@@ -153,16 +139,7 @@ func FetchRepositories(githubToken string) ([]Repository, error) {
 	return result, nil
 }
 
-func FetchIssues(remotePath, label, githubToken string) ([]Issue, error) {
-	if githubToken == "" {
-		return nil, fmt.Errorf("GitHub token not provided in settings")
-	}
-
-	ctx := context.Background()
-	client := newGitHubClient(ctx, githubToken)
-
-	// Extract owner and repo from remote path
-	// Expected format: owner/repo
+func (p *Provider) FetchIssues(remotePath, label string) ([]Issue, error) {
 	parts := strings.Split(remotePath, "/")
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("invalid remote path format")
@@ -178,7 +155,7 @@ func FetchIssues(remotePath, label, githubToken string) ([]Issue, error) {
 		},
 	}
 
-	ghIssues, _, err := client.Issues.ListByRepo(ctx, owner, repo, opt)
+	ghIssues, _, err := p.Client.Issues.ListByRepo(p.ctx, owner, repo, opt)
 	if err != nil {
 		log.Printf("Error fetching issues: %v, request: %v", err, remotePath)
 		return nil, fmt.Errorf("error fetching issues: %v", err)
@@ -202,14 +179,7 @@ func FetchIssues(remotePath, label, githubToken string) ([]Issue, error) {
 	return issues, nil
 }
 
-func FetchPullRequests(remotePath, label, githubToken string) ([]PullRequest, error) {
-	if githubToken == "" {
-		return nil, fmt.Errorf("GitHub token not provided in settings")
-	}
-
-	ctx := context.Background()
-	client := newGitHubClient(ctx, githubToken)
-
+func (p *Provider) FetchPullRequests(remotePath, label string) ([]PullRequest, error) {
 	parts := strings.Split(remotePath, "/")
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("invalid remote path format")
@@ -224,7 +194,7 @@ func FetchPullRequests(remotePath, label, githubToken string) ([]PullRequest, er
 		},
 	}
 
-	ghPullRequests, _, err := client.PullRequests.List(ctx, owner, repo, opt)
+	ghPullRequests, _, err := p.Client.PullRequests.List(p.ctx, owner, repo, opt)
 	if err != nil {
 		log.Printf("Error fetching pull requests: %v, request: %v", err, remotePath)
 		return nil, fmt.Errorf("error fetching pull requests: %v", err)
@@ -250,14 +220,14 @@ func FetchPullRequests(remotePath, label, githubToken string) ([]PullRequest, er
 		}
 
 		// Fetch comments for the pull request
-		comments, err := FetchComments(ctx, client, owner, repo, pullRequest.GetNumber())
+		comments, err := p.FetchComments(owner, repo, pullRequest.GetNumber())
 		if err != nil {
 			log.Printf("Error fetching comments for PR %d: %v", pullRequest.GetNumber(), err)
 			// Don't return, just log the error and continue
 		}
 		pr.Comments = comments
 
-		diff, err := FetchDiffs(ctx, client, owner, repo, pullRequest.GetNumber())
+		diff, err := p.FetchDiffs(owner, repo, pullRequest.GetNumber())
 		if err != nil {
 			log.Printf("Error fetching diffs for PR %d: %v", pullRequest.GetNumber(), err)
 			// Don't return, just log the error and continue
@@ -270,8 +240,8 @@ func FetchPullRequests(remotePath, label, githubToken string) ([]PullRequest, er
 	return pullRequests, nil
 }
 
-func FetchDiffs(ctx context.Context, client *github.Client, owner, repo string, resourceID int) (string, error) {
-	diff, _, err := client.PullRequests.GetRaw(ctx, owner, repo, resourceID, github.RawOptions{Type: github.Diff})
+func (p *Provider) FetchDiffs(owner, repo string, resourceID int) (string, error) {
+	diff, _, err := p.Client.PullRequests.GetRaw(p.ctx, owner, repo, resourceID, github.RawOptions{Type: github.Diff})
 	if err != nil {
 		return "", fmt.Errorf("failed to get pull request diff: %w", err)
 	}

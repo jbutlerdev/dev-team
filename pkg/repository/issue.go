@@ -4,20 +4,20 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/jbutlerdev/dev-team/pkg/github"
+	"github.com/jbutlerdev/dev-team/pkg/remote/github"
 )
 
 type Issue struct {
-	ID           int            `json:"id"`
-	Title        string         `json:"title"`
-	Body         string         `json:"body"`
-	Labels       []string       `json:"labels"`
-	CreatedAt    string         `json:"created_at"`
-	UpdatedAt    string         `json:"updated_at"`
-	HTMLURL      string         `json:"html_url"`
-	SourceURL    string         `json:"source_url"`
-	State        string         `json:"state"`
-	PullRequests []*PullRequest `json:"pull_requests"`
+	ID           int
+	Title        string
+	Body         string
+	Labels       []string
+	CreatedAt    string
+	UpdatedAt    string
+	HTMLURL      string
+	SourceURL    string
+	State        string
+	PullRequests []*PullRequest
 }
 
 func (i *Issue) addPullRequests(pullRequests map[int]*PullRequest) {
@@ -66,7 +66,7 @@ func (r *Repository) UpdateIssues(token string) error {
 	if r.RemotePath == "" {
 		return fmt.Errorf("repository remote path is not set")
 	}
-	issues, err := github.FetchIssues(r.RemotePath, "dev-team", token)
+	issues, err := r.Remote.FetchIssues(r.RemotePath, "dev-team")
 	if err != nil {
 		log.Printf("Error fetching issues: %v, request: %v", err, r.RemotePath)
 		return err
