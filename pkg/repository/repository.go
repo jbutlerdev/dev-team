@@ -16,7 +16,7 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/object"
 
 	"github.com/jbutlerdev/genai"
-	"github.com/jbutlerdev/genai/tools"
+	genaitools "github.com/jbutlerdev/genai/tools"
 )
 
 // set static model const until agent is implemented
@@ -31,12 +31,12 @@ type Repository struct {
 	LastSync       time.Time               `json:"lastSync"`
 	State          *Status                 `json:"status,omitempty"`
 	RemotePath     string                  `json:"remotePath,omitempty"`
-	Issues         map[int]*Issue
-	PullRequests   map[int]*PullRequest
-	mu             sync.RWMutex
-	Locked         bool
-	Logger         logr.Logger
-	Remote         remote.Provider
+	Issues         map[int]*Issue          `json:"issues,omitempty"`
+	PullRequests   map[int]*PullRequest    `json:"pullRequests,omitempty"`
+	Mu             sync.RWMutex            `json:"-"`
+	Locked         bool                    `json:"locked"`
+	Logger         logr.Logger             `json:"-"`
+	Remote         remote.Provider         `json:"-"`
 }
 
 type Changes struct {
@@ -50,7 +50,7 @@ func NewRepository(path string) *Repository {
 		Path:         path,
 		Issues:       make(map[int]*Issue),
 		PullRequests: make(map[int]*PullRequest),
-		mu:           sync.RWMutex{},
+		Mu:           sync.RWMutex{},
 		Locked:       false,
 		Remote: remote.New(remote.ProviderOptions{
 			Type: remote.LOCAL,
@@ -64,7 +64,7 @@ func NewRepositoryWithRemote(path string, remote remote.Provider) *Repository {
 		Path:         path,
 		Issues:       make(map[int]*Issue),
 		PullRequests: make(map[int]*PullRequest),
-		mu:           sync.RWMutex{},
+		Mu:           sync.RWMutex{},
 		Locked:       false,
 		Remote:       remote,
 	}
@@ -333,7 +333,7 @@ func (r *Repository) getChanges() (*Changes, error) {
 
 func (r *Repository) generateFromIssue(aiService *genai.Provider, issue *Issue) error {
 	// generate changes for issue
-	toolsToUse, err := tools.GetTools([]string{"writeFile", "tree", "readFile"})
+	toolsToUse, err := genaitools.GetTools([]string{"writeFile", "tree", "readFile"})
 	if err != nil {
 		r.Logger.Error(err, "Error getting tools")
 		return err
@@ -445,20 +445,20 @@ func (r *Repository) createPR(aiService *genai.Provider, issue *Issue) error {
 }
 
 func (r *Repository) lock() error {
-	r.mu.RLock()
+	r.Mu.RLock()
 	locked := r.Locked
-	r.mu.RUnlock()
+	r.Mu.RUnlock()
 	if locked {
 		return fmt.Errorf("repository is locked")
 	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.Mu.Lock()
+	defer r.Mu.Unlock()
 	r.Locked = true
 	return nil
 }
 
 func (r *Repository) unlock() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	r.Mu.Lock()
+	defer r.Mu.Unlock()
 	r.Locked = false
 }

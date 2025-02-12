@@ -8,7 +8,7 @@ import (
 	"github.com/jbutlerdev/dev-team/pkg/remote/types"
 )
 
-func (p *Provider) FetchComments(owner, repo string, prNumber int) ([]types.Comment, error) {
+func (p *Provider) FetchComments(owner, repo string, prNumber int) ([]*types.Comment, error) {
 	opt := &github.PullRequestListCommentsOptions{
 		ListOptions: github.ListOptions{
 			PerPage: 100,
@@ -20,9 +20,9 @@ func (p *Provider) FetchComments(owner, repo string, prNumber int) ([]types.Comm
 		return nil, fmt.Errorf("error fetching comments: %v", err)
 	}
 
-	var comments []types.Comment
+	var comments []*types.Comment
 	for _, comment := range ghComments {
-		c := types.Comment{
+		c := &types.Comment{
 			ID:       comment.GetID(),
 			Body:     comment.GetBody(),
 			DiffHunk: comment.GetDiffHunk(),

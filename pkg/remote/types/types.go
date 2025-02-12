@@ -9,14 +9,16 @@ type Repository struct {
 }
 
 type Issue struct {
-	Number    int    `json:"number"`
-	Title     string `json:"title"`
-	Body      string `json:"body"`
-	State     string `json:"state"`
-	HTMLURL   string `json:"html_url"`
-	SourceURL string `json:"source_url"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	Number    int        `json:"number"`
+	Title     string     `json:"title"`
+	Body      string     `json:"body"`
+	State     string     `json:"state"`
+	HTMLURL   string     `json:"html_url"`
+	SourceURL string     `json:"source_url"`
+	CreatedAt string     `json:"created_at"`
+	UpdatedAt string     `json:"updated_at"`
+	Labels    []string   `json:"labels"`
+	Comments  []*Comment `json:"comments"`
 }
 
 type PullRequestInput struct {
@@ -29,18 +31,18 @@ type PullRequestInput struct {
 }
 
 type PullRequest struct {
-	Number          int       `json:"number"`
-	Title           string    `json:"title"`
-	Body            string    `json:"body"`
-	State           string    `json:"state"`
-	HTMLURL         string    `json:"html_url"`
-	Labels          []string  `json:"labels"`
-	IssueURL        string    `json:"issue_url"`
-	CreatedAt       string    `json:"created_at"`
-	UpdatedAt       string    `json:"updated_at"`
-	LinkedIssueURLs []string  `json:"linked_issue_urls"`
-	Diff            string    `json:"diff"`
-	Comments        []Comment `json:"comments"`
+	Number          int        `json:"number"`
+	Title           string     `json:"title"`
+	Body            string     `json:"body"`
+	State           string     `json:"state"`
+	HTMLURL         string     `json:"html_url"`
+	Labels          []string   `json:"labels"`
+	IssueURL        string     `json:"issue_url"`
+	CreatedAt       string     `json:"created_at"`
+	UpdatedAt       string     `json:"updated_at"`
+	LinkedIssueURLs []string   `json:"linked_issue_urls"`
+	Diff            string     `json:"diff"`
+	Comments        []*Comment `json:"comments"`
 }
 
 type Comment struct {

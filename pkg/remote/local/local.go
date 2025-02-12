@@ -1,36 +1,55 @@
 package local
 
 import (
+	"encoding/json"
 	"fmt"
+	"log"
+	"os"
+	"path/filepath"
+	"slices"
 
 	"github.com/jbutlerdev/dev-team/pkg/remote/types"
 )
 
+const (
+	dataPath    = "~/.config/dev-team/local-provider.json"
+	filterLabel = "dev-team"
+)
+
 type Provider struct {
-	Path         string
-	Issues       map[int]*types.Issue
-	PullRequests map[int]*types.PullRequest
-	issueCounter int
+	Path         string                     `json:"path"`
+	Issues       map[int]*types.Issue       `json:"issues"`
+	PullRequests map[int]*types.PullRequest `json:"pullRequests"`
+	IssueCounter int                        `json:"issueCounter"`
 }
 
 func NewProvider(path string) *Provider {
-	return &Provider{
-		Path:         path,
-		Issues:       make(map[int]*types.Issue),
-		PullRequests: make(map[int]*types.PullRequest),
-		issueCounter: 0,
+	// load provider from file
+	provider, err := loadProvider(path)
+	if err != nil {
+		log.Printf("error loading provider: %v", err)
 	}
+	return provider
 }
 
 func (p *Provider) CreateDraftPR(path string, input types.PullRequestInput) error {
-	p.issueCounter++
-	p.PullRequests[p.issueCounter] = &types.PullRequest{
-		Number: p.issueCounter,
+	p.IssueCounter++
+	p.PullRequests[p.IssueCounter] = &types.PullRequest{
+		Number: p.IssueCounter,
 		Title:  input.Title,
 		Body:   input.Description,
 		State:  "draft",
 	}
-	return nil
+
+	return p.Save()
+}
+
+func (p *Provider) CreateIssue(issue types.Issue) (int, error) {
+	p.IssueCounter++
+	issue.Number = p.IssueCounter
+	p.Issues[p.IssueCounter] = &issue
+
+	return p.IssueCounter, p.Save()
 }
 
 func (p *Provider) FetchRepositories() ([]types.Repository, error) {
@@ -38,17 +57,29 @@ func (p *Provider) FetchRepositories() ([]types.Repository, error) {
 }
 
 func (p *Provider) FetchIssues(remotePath, label string) ([]types.Issue, error) {
-	issues := make([]types.Issue, len(p.Issues))
-	for i := range p.Issues {
-		issues[i] = *p.Issues[i]
+	issues := make([]types.Issue, 0, len(p.Issues))
+	for _, issue := range p.Issues {
+		if slices.Contains(issue.Labels, filterLabel) {
+			issues = append(issues, *issue)
+		}
 	}
 	return issues, nil
 }
 
+func (p *Provider) AddLabelToIssue(issueNumber int, label string) error {
+	issue, ok := p.Issues[issueNumber]
+	if !ok {
+		return fmt.Errorf("issue %d not found", issueNumber)
+	}
+	issue.Labels = append(issue.Labels, label)
+	p.Issues[issueNumber] = issue
+	return p.Save()
+}
+
 func (p *Provider) FetchPullRequests(remotePath, label string) ([]types.PullRequest, error) {
-	pullRequests := make([]types.PullRequest, len(p.PullRequests))
-	for i := range p.PullRequests {
-		pullRequests[i] = *p.PullRequests[i]
+	pullRequests := make([]types.PullRequest, 0, len(p.PullRequests))
+	for _, pullRequest := range p.PullRequests {
+		pullRequests = append(pullRequests, *pullRequest)
 	}
 	return pullRequests, nil
 }
@@ -57,7 +88,7 @@ func (p *Provider) FetchDiffs(owner, repo string, resourceID int) (string, error
 	return "", nil
 }
 
-func (p *Provider) FetchComments(owner, repo string, prNumber int) ([]types.Comment, error) {
+func (p *Provider) FetchComments(owner, repo string, prNumber int) ([]*types.Comment, error) {
 	pr, ok := p.PullRequests[prNumber]
 	if !ok {
 		return nil, fmt.Errorf("pull request %d not found", prNumber)
@@ -73,7 +104,8 @@ func (p *Provider) AddCommentReaction(repoPath, reaction string, commentID int64
 			}
 		}
 	}
-	return nil
+
+	return p.Save()
 }
 
 func addReactionToReactions(reactions types.Reactions, reaction string) types.Reactions {
@@ -97,4 +129,72 @@ func addReactionToReactions(reactions types.Reactions, reaction string) types.Re
 		reactions.Eyes++
 	}
 	return reactions
+}
+
+func (p *Provider) Save() error {
+	// validate data path
+	path, err := validatePath(dataPath)
+	if err != nil {
+		return fmt.Errorf("error validating data path: %v", err)
+	}
+
+	// write to file
+	data, err := json.Marshal(p)
+	if err != nil {
+		return fmt.Errorf("error marshalling data: %v", err)
+	}
+	return os.WriteFile(path, data, 0644)
+}
+
+func loadProvider(path string) (*Provider, error) {
+	// validate data path
+	configPath, err := validatePath(dataPath)
+	if err != nil {
+		return nil, fmt.Errorf("error validating data path: %v", err)
+	}
+
+	// read file
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("error reading file: %v", err)
+	}
+
+	// unmarshal data
+	var provider Provider
+	err = json.Unmarshal(data, &provider)
+	if err != nil {
+		p := &Provider{
+			Path:         path,
+			Issues:       make(map[int]*types.Issue),
+			PullRequests: make(map[int]*types.PullRequest),
+			IssueCounter: 0,
+		}
+		return p, fmt.Errorf("error unmarshalling data, creating blank provider: %v", err)
+	}
+
+	return &provider, nil
+}
+
+func validatePath(path string) (string, error) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("error getting absolute path: %v", err)
+	}
+
+	dir := filepath.Dir(absPath)
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		err = os.MkdirAll(dir, 0755)
+		if err != nil {
+			return "", fmt.Errorf("error creating directory: %v", err)
+		}
+	}
+
+	// create file if it doesn't exist
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		_, err = os.Create(absPath)
+		if err != nil {
+			return "", fmt.Errorf("error creating file: %v", err)
+		}
+	}
+	return absPath, nil
 }

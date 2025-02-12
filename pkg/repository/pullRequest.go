@@ -8,26 +8,27 @@ import (
 )
 
 type PullRequest struct {
-	Number          int
-	Title           string
-	Body            string
-	CreatedAt       string
-	UpdatedAt       string
-	Labels          []string
-	IssueUrl        string
-	LinkedIssueUrls []string
-	Diff            string
-	Comments        []Comment
+	Number          int        `json:"number"`
+	Title           string     `json:"title"`
+	Body            string     `json:"body"`
+	CreatedAt       string     `json:"created_at"`
+	UpdatedAt       string     `json:"updated_at"`
+	Labels          []string   `json:"labels"`
+	IssueUrl        string     `json:"issue_url"`
+	LinkedIssueUrls []string   `json:"linked_issue_urls"`
+	Diff            string     `json:"diff"`
+	Comments        []*Comment `json:"comments"`
 }
 
 type Comment struct {
-	ID           int64
-	Body         string
-	DiffHunk     string
-	HTMLURL      string
-	URL          string
-	UserID       int64
-	Acknowledged bool
+	ID           int64           `json:"id"`
+	Body         string          `json:"body"`
+	DiffHunk     string          `json:"diff_hunk,omitempty"`
+	HTMLURL      string          `json:"html_url"`
+	URL          string          `json:"url"`
+	UserID       int64           `json:"user_id"`
+	Acknowledged bool            `json:"acknowledged"`
+	Reactions    types.Reactions `json:"reactions"`
 }
 
 func (p *PullRequest) HasUnresolvedComments() bool {
@@ -39,13 +40,13 @@ func (p *PullRequest) HasUnresolvedComments() bool {
 	return false
 }
 
-func (p *PullRequest) FirstUnresolvedComment() Comment {
+func (p *PullRequest) FirstUnresolvedComment() *Comment {
 	for _, comment := range p.Comments {
 		if !comment.Acknowledged {
 			return comment
 		}
 	}
-	return Comment{}
+	return nil
 }
 
 func (r *Repository) GetPullRequests() []*PullRequest {
@@ -88,10 +89,10 @@ func ghPullRequestToPullRequest(pullRequest types.PullRequest) *PullRequest {
 	}
 }
 
-func ghCommentsToComments(comments []types.Comment) []Comment {
-	pullRequestComments := make([]Comment, 0, len(comments))
+func ghCommentsToComments(comments []*types.Comment) []*Comment {
+	pullRequestComments := make([]*Comment, 0, len(comments))
 	for _, comment := range comments {
-		pullRequestComments = append(pullRequestComments, Comment{
+		pullRequestComments = append(pullRequestComments, &Comment{
 			ID:           comment.ID,
 			Body:         comment.Body,
 			DiffHunk:     comment.DiffHunk,

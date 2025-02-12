@@ -20,11 +20,13 @@ var stringToIntMap = map[string]int{
 
 type Provider interface {
 	CreateDraftPR(path string, input types.PullRequestInput) error
+	CreateIssue(issue types.Issue) (int, error)
+	AddLabelToIssue(issueNumber int, label string) error
 	FetchRepositories() ([]types.Repository, error)
 	FetchIssues(remotePath, label string) ([]types.Issue, error)
 	FetchPullRequests(remotePath, label string) ([]types.PullRequest, error)
 	FetchDiffs(owner, repo string, resourceID int) (string, error)
-	FetchComments(owner, repo string, prNumber int) ([]types.Comment, error)
+	FetchComments(owner, repo string, prNumber int) ([]*types.Comment, error)
 	AddCommentReaction(repoPath, reaction string, commentID int64) error
 }
 
@@ -45,7 +47,7 @@ func New(options ProviderOptions) Provider {
 	case LOCAL:
 		return local.NewProvider(options.Path)
 	case GITHUB:
-		return github.NewProvider(options.GitHubToken)
+		return github.NewProvider(options.Path, options.GitHubToken)
 	}
 	return nil
 }

@@ -8,16 +8,18 @@ import (
 )
 
 type Issue struct {
-	ID           int
-	Title        string
-	Body         string
-	Labels       []string
-	CreatedAt    string
-	UpdatedAt    string
-	HTMLURL      string
-	SourceURL    string
-	State        string
-	PullRequests []*PullRequest
+	ID           int            `json:"id"`
+	Number       int            `json:"number"`
+	Title        string         `json:"title"`
+	Body         string         `json:"body"`
+	State        string         `json:"state"`
+	HTMLURL      string         `json:"html_url"`
+	SourceURL    string         `json:"source_url"`
+	CreatedAt    string         `json:"created_at"`
+	UpdatedAt    string         `json:"updated_at"`
+	Comments     []*Comment     `json:"comments"`
+	PullRequests []*PullRequest `json:"pull_requests"`
+	Labels       []string       `json:"labels"`
 }
 
 func (i *Issue) addPullRequests(pullRequests map[int]*PullRequest) {
@@ -80,9 +82,7 @@ func (r *Repository) UpdateIssues(token string) error {
 }
 
 func (i *Issue) ToString() string {
-	return fmt.Sprintf("Issue: %d\n\n"+
-		"Title: %s\n\n"+
-		"Body: %s\n\n", i.ID, i.Title, i.Body)
+	return fmt.Sprintf("Issue #%d: %s\n%s", i.Number, i.Title, i.Body)
 }
 
 func ghIssueToIssue(issue types.Issue) *Issue {

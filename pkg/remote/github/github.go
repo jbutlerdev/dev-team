@@ -97,46 +97,6 @@ func (p *Provider) FetchRepositories() ([]types.Repository, error) {
 	return result, nil
 }
 
-func (p *Provider) FetchIssues(remotePath, label string) ([]types.Issue, error) {
-	parts := strings.Split(remotePath, "/")
-	if len(parts) < 2 {
-		return nil, fmt.Errorf("invalid remote path format")
-	}
-	owner := parts[0]
-	repo := parts[1]
-
-	opt := &github.IssueListByRepoOptions{
-		Labels: []string{label},
-		State:  "open",
-		ListOptions: github.ListOptions{
-			PerPage: 100,
-		},
-	}
-
-	ghIssues, _, err := p.Client.Issues.ListByRepo(p.ctx, owner, repo, opt)
-	if err != nil {
-		log.Printf("Error fetching issues: %v, request: %v", err, remotePath)
-		return nil, fmt.Errorf("error fetching issues: %v", err)
-	}
-
-	var issues []types.Issue
-	for _, issue := range ghIssues {
-		i := types.Issue{
-			Number:    issue.GetNumber(),
-			Title:     issue.GetTitle(),
-			Body:      issue.GetBody(),
-			State:     issue.GetState(),
-			HTMLURL:   issue.GetHTMLURL(),
-			SourceURL: issue.GetHTMLURL(),
-			CreatedAt: issue.GetCreatedAt().String(),
-			UpdatedAt: issue.GetUpdatedAt().String(),
-		}
-		issues = append(issues, i)
-	}
-
-	return issues, nil
-}
-
 func (p *Provider) FetchPullRequests(remotePath, label string) ([]types.PullRequest, error) {
 	parts := strings.Split(remotePath, "/")
 	if len(parts) < 2 {
@@ -171,7 +131,7 @@ func (p *Provider) FetchPullRequests(remotePath, label string) ([]types.PullRequ
 			CreatedAt:       pullRequest.GetCreatedAt().String(),
 			UpdatedAt:       pullRequest.GetUpdatedAt().String(),
 			LinkedIssueURLs: getLinkedIssueURLs(pullRequest.GetBody()),
-			Comments:        []types.Comment{},
+			Comments:        make([]*types.Comment, 0),
 		}
 		for i, label := range pullRequest.Labels {
 			pr.Labels[i] = label.GetName()

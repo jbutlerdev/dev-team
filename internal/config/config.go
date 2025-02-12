@@ -61,6 +61,7 @@ func LoadConfig(path string, l logr.Logger) (*state.AppState, error) {
 		r.Logger = l.WithName("repository").WithValues("path", repo.Path)
 		r.Schedule = repo.Schedule
 		r.RemotePath = repo.RemotePath
+		r.RemoteProvider = repo.RemoteProvider
 		err = r.UpdateStatus()
 		if err != nil {
 			l.Error(err, "Error getting repo status")
