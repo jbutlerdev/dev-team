@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/jbutlerdev/dev-team/pkg/remote/github"
+	"github.com/jbutlerdev/dev-team/pkg/remote/types"
 )
 
 type Issue struct {
@@ -85,7 +85,7 @@ func (i *Issue) ToString() string {
 		"Body: %s\n\n", i.ID, i.Title, i.Body)
 }
 
-func ghIssueToIssue(issue github.Issue) *Issue {
+func ghIssueToIssue(issue types.Issue) *Issue {
 	return &Issue{
 		ID:        issue.Number,
 		Title:     issue.Title,

@@ -9,7 +9,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/jbutlerdev/dev-team/pkg/auth"
 	"github.com/jbutlerdev/dev-team/pkg/remote"
-	"github.com/jbutlerdev/dev-team/pkg/remote/github"
+	"github.com/jbutlerdev/dev-team/pkg/remote/types"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/go-git/go-git/v5/config"
@@ -434,7 +434,7 @@ func (r *Repository) createPR(aiService *genai.Provider, issue *Issue) error {
 		prDescription,
 		fmt.Sprintf("Closes #%d", issue.ID),
 		issue.SourceURL)
-	return r.Remote.CreateDraftPR(r.Path, github.GitHubPRInput{
+	return r.Remote.CreateDraftPR(r.Path, types.PullRequestInput{
 		Title:               prTitle,
 		Branch:              r.State.CurrentBranch,
 		Base:                "main",

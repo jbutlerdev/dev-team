@@ -5,36 +5,10 @@ import (
 	"strings"
 
 	"github.com/google/go-github/v60/github"
+	"github.com/jbutlerdev/dev-team/pkg/remote/types"
 )
 
-type Comment struct {
-	ID        int64     `json:"id"`
-	Body      string    `json:"body"`
-	DiffHunk  string    `json:"diff_hunk,omitempty"`
-	HTMLURL   string    `json:"html_url"`
-	URL       string    `json:"url"`
-	UserID    int64     `json:"user_id"`
-	Reactions Reactions `json:"reactions,omitempty"`
-}
-
-type Reaction struct {
-	ID      int64  `json:"id,omitempty"`
-	Content string `json:"content,omitempty"`
-}
-
-type Reactions struct {
-	TotalCount int `json:"total_count,omitempty"`
-	PlusOne    int `json:"+1,omitempty"`
-	MinusOne   int `json:"-1,omitempty"`
-	Laugh      int `json:"laugh,omitempty"`
-	Confused   int `json:"confused,omitempty"`
-	Heart      int `json:"heart,omitempty"`
-	Hooray     int `json:"hooray,omitempty"`
-	Rocket     int `json:"rocket,omitempty"`
-	Eyes       int `json:"eyes,omitempty"`
-}
-
-func (p *Provider) FetchComments(owner, repo string, prNumber int) ([]Comment, error) {
+func (p *Provider) FetchComments(owner, repo string, prNumber int) ([]types.Comment, error) {
 	opt := &github.PullRequestListCommentsOptions{
 		ListOptions: github.ListOptions{
 			PerPage: 100,
@@ -46,9 +20,9 @@ func (p *Provider) FetchComments(owner, repo string, prNumber int) ([]Comment, e
 		return nil, fmt.Errorf("error fetching comments: %v", err)
 	}
 
-	var comments []Comment
+	var comments []types.Comment
 	for _, comment := range ghComments {
-		c := Comment{
+		c := types.Comment{
 			ID:       comment.GetID(),
 			Body:     comment.GetBody(),
 			DiffHunk: comment.GetDiffHunk(),
@@ -67,7 +41,7 @@ func (p *Provider) FetchComments(owner, repo string, prNumber int) ([]Comment, e
 	return comments, nil
 }
 
-func (p *Provider) FetchPullRequestCommentReactions(owner, repo string, commentID int64) (Reactions, error) {
+func (p *Provider) FetchPullRequestCommentReactions(owner, repo string, commentID int64) (types.Reactions, error) {
 	opt := &github.ListCommentReactionOptions{
 		ListOptions: github.ListOptions{
 			PerPage: 100,
@@ -77,10 +51,10 @@ func (p *Provider) FetchPullRequestCommentReactions(owner, repo string, commentI
 	repo = repo + "/pulls"
 	ghReactions, _, err := p.Client.Reactions.ListCommentReactions(p.ctx, owner, repo, commentID, opt)
 	if err != nil {
-		return Reactions{}, fmt.Errorf("error fetching reactions: %v", err)
+		return types.Reactions{}, fmt.Errorf("error fetching reactions: %v", err)
 	}
 
-	reactions := Reactions{}
+	reactions := types.Reactions{}
 	for _, ghReaction := range ghReactions {
 		reactions.TotalCount++
 		switch ghReaction.GetContent() {

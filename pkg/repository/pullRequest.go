@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/jbutlerdev/dev-team/pkg/remote/github"
+	"github.com/jbutlerdev/dev-team/pkg/remote/types"
 )
 
 type PullRequest struct {
@@ -73,7 +73,7 @@ func (r *Repository) UpdatePullRequests(token string) error {
 	return nil
 }
 
-func ghPullRequestToPullRequest(pullRequest github.PullRequest) *PullRequest {
+func ghPullRequestToPullRequest(pullRequest types.PullRequest) *PullRequest {
 	return &PullRequest{
 		Number:          pullRequest.Number,
 		Title:           pullRequest.Title,
@@ -88,7 +88,7 @@ func ghPullRequestToPullRequest(pullRequest github.PullRequest) *PullRequest {
 	}
 }
 
-func ghCommentsToComments(comments []github.Comment) []Comment {
+func ghCommentsToComments(comments []types.Comment) []Comment {
 	pullRequestComments := make([]Comment, 0, len(comments))
 	for _, comment := range comments {
 		pullRequestComments = append(pullRequestComments, Comment{

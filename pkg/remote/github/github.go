@@ -9,54 +9,12 @@ import (
 
 	"github.com/go-git/go-git/v5"
 	"github.com/google/go-github/v60/github"
+	"github.com/jbutlerdev/dev-team/pkg/remote/types"
 	"golang.org/x/oauth2"
 )
 
-type GitHubPRInput struct {
-	Title               string `json:"title"`
-	Description         string `json:"description"`
-	Branch              string `json:"branch"`
-	Base                string `json:"base"`
-	Draft               bool   `json:"draft"`
-	MaintainerCanModify bool   `json:"maintainer_can_modify"`
-}
-
 type GitHubPRResponse struct {
 	Number int `json:"number"`
-}
-
-type Repository struct {
-	Name        string `json:"name"`
-	FullName    string `json:"full_name"`
-	Description string `json:"description"`
-	CloneURL    string `json:"clone_url"`
-	SSHURL      string `json:"ssh_url"`
-}
-
-type Issue struct {
-	Number    int    `json:"number"`
-	Title     string `json:"title"`
-	Body      string `json:"body"`
-	State     string `json:"state"`
-	HTMLURL   string `json:"html_url"`
-	SourceURL string `json:"source_url"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
-}
-
-type PullRequest struct {
-	Number          int       `json:"number"`
-	Title           string    `json:"title"`
-	Body            string    `json:"body"`
-	State           string    `json:"state"`
-	HTMLURL         string    `json:"html_url"`
-	Labels          []string  `json:"labels"`
-	IssueURL        string    `json:"issue_url"`
-	CreatedAt       string    `json:"created_at"`
-	UpdatedAt       string    `json:"updated_at"`
-	LinkedIssueURLs []string  `json:"linked_issue_urls"`
-	Diff            string    `json:"diff"`
-	Comments        []Comment `json:"comments"`
 }
 
 var re = regexp.MustCompile(`<!--(.*?)-->`)
@@ -69,7 +27,7 @@ func newGitHubClient(ctx context.Context, token string) *github.Client {
 	return github.NewClient(tc)
 }
 
-func (p *Provider) CreateDraftPR(path string, input GitHubPRInput) error {
+func (p *Provider) CreateDraftPR(path string, input types.PullRequestInput) error {
 	repo, err := git.PlainOpen(path)
 	if err != nil {
 		return err
@@ -112,7 +70,7 @@ func (p *Provider) CreateDraftPR(path string, input GitHubPRInput) error {
 	return nil
 }
 
-func (p *Provider) FetchRepositories() ([]Repository, error) {
+func (p *Provider) FetchRepositories() ([]types.Repository, error) {
 	opt := &github.RepositoryListByAuthenticatedUserOptions{
 		Sort: "updated",
 		ListOptions: github.ListOptions{
@@ -125,9 +83,9 @@ func (p *Provider) FetchRepositories() ([]Repository, error) {
 		return nil, fmt.Errorf("error fetching repositories: %v", err)
 	}
 
-	var result []Repository
+	var result []types.Repository
 	for _, repo := range repos {
-		result = append(result, Repository{
+		result = append(result, types.Repository{
 			Name:        repo.GetName(),
 			FullName:    repo.GetFullName(),
 			Description: repo.GetDescription(),
@@ -139,7 +97,7 @@ func (p *Provider) FetchRepositories() ([]Repository, error) {
 	return result, nil
 }
 
-func (p *Provider) FetchIssues(remotePath, label string) ([]Issue, error) {
+func (p *Provider) FetchIssues(remotePath, label string) ([]types.Issue, error) {
 	parts := strings.Split(remotePath, "/")
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("invalid remote path format")
@@ -161,9 +119,9 @@ func (p *Provider) FetchIssues(remotePath, label string) ([]Issue, error) {
 		return nil, fmt.Errorf("error fetching issues: %v", err)
 	}
 
-	var issues []Issue
+	var issues []types.Issue
 	for _, issue := range ghIssues {
-		i := Issue{
+		i := types.Issue{
 			Number:    issue.GetNumber(),
 			Title:     issue.GetTitle(),
 			Body:      issue.GetBody(),
@@ -179,7 +137,7 @@ func (p *Provider) FetchIssues(remotePath, label string) ([]Issue, error) {
 	return issues, nil
 }
 
-func (p *Provider) FetchPullRequests(remotePath, label string) ([]PullRequest, error) {
+func (p *Provider) FetchPullRequests(remotePath, label string) ([]types.PullRequest, error) {
 	parts := strings.Split(remotePath, "/")
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("invalid remote path format")
@@ -200,9 +158,9 @@ func (p *Provider) FetchPullRequests(remotePath, label string) ([]PullRequest, e
 		return nil, fmt.Errorf("error fetching pull requests: %v", err)
 	}
 
-	var pullRequests []PullRequest
+	var pullRequests []types.PullRequest
 	for _, pullRequest := range ghPullRequests {
-		pr := PullRequest{
+		pr := types.PullRequest{
 			Number:          pullRequest.GetNumber(),
 			Title:           pullRequest.GetTitle(),
 			Body:            pullRequest.GetBody(),
@@ -213,7 +171,7 @@ func (p *Provider) FetchPullRequests(remotePath, label string) ([]PullRequest, e
 			CreatedAt:       pullRequest.GetCreatedAt().String(),
 			UpdatedAt:       pullRequest.GetUpdatedAt().String(),
 			LinkedIssueURLs: getLinkedIssueURLs(pullRequest.GetBody()),
-			Comments:        []Comment{},
+			Comments:        []types.Comment{},
 		}
 		for i, label := range pullRequest.Labels {
 			pr.Labels[i] = label.GetName()
