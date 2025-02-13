@@ -32,4 +32,12 @@ func TestHandlers(t *testing.T) {
 			t.Errorf("String should not be empty")
 		}
 	})
+
+	// Test case: Check if 2 * 2 = 4
+	t.Run("TestMultiplication", func(t *testing.T) {
+		product := 2 * 2
+		if product != 4 {
+			t.Errorf("2 * 2 should be 4, but got %d", product)
+		}
+	})
 }
