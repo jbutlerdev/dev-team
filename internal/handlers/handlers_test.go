@@ -1,14 +1,17 @@
 package handlers
 
-import "testing"
+import (
+	"html/template"
+	"testing"
+)
 
 func TestHandlers(t *testing.T) {
-	t.Run("Simple Test", func(t *testing.T) {
-		x := 1
-		if true != false {
-			if x != 1 {
-				t.Errorf("x is not equal to 1")
-			}
+	t.Run("Template Initialization", func(t *testing.T) {
+		templates = nil // Reset templates to nil for testing
+		tmpl := template.Must(template.New("test").Parse("<html></html>"))
+		InitTemplates(tmpl)
+		if templates == nil {
+			t.Errorf("Templates should not be nil after initialization")
 		}
 	})
 
