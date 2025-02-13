@@ -24,4 +24,12 @@ func TestHandlers(t *testing.T) {
 	t.Run("EmptyTest", func(t *testing.T) {
 		// This test does nothing.
 	})
+
+	// Test case: Check if a string is not empty
+	t.Run("TestStringNotEmpty", func(t *testing.T) {
+		str := "hello"
+		if str == "" {
+			t.Errorf("String should not be empty")
+		}
+	})
 }
