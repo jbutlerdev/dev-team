@@ -40,4 +40,12 @@ func TestHandlers(t *testing.T) {
 			t.Errorf("2 * 2 should be 4, but got %d", product)
 		}
 	})
+
+	// Test case: Check if a boolean is true
+	t.Run("TestBooleanTrue", func(t *testing.T) {
+		value := true
+		if !value {
+			t.Errorf("Boolean should be true")
+		}
+	})
 }
