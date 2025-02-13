@@ -19,4 +19,9 @@ func TestHandlers(t *testing.T) {
 			t.Errorf("1 + 1 should be 2, but got %d", sum)
 		}
 	})
+
+	// Test case: Empty test
+	t.Run("EmptyTest", func(t *testing.T) {
+		// This test does nothing.
+	})
 }
