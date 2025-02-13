@@ -102,6 +102,7 @@ func main() {
 	api.HandleFunc("/local/diff", handlers.HandleGetLocalDiff).Methods("GET")
 	api.HandleFunc("/local/labels", handlers.HandleAddLocalLabel).Methods("POST")
 	api.HandleFunc("/local/issues/state", handlers.HandleUpdateLocalIssueState).Methods("POST")
+	api.HandleFunc("/local/pullrequests/state", handlers.HandleUpdateLocalPullRequestState).Methods("POST")
 
 	// Settings routes
 	api.HandleFunc("/settings", handlers.HandleUpdateSettings).Methods("POST")

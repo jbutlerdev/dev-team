@@ -15,9 +15,11 @@ import (
 )
 
 type LocalPageData struct {
-	Repository interface{}
-	Page       string
-	Settings   settings.Settings
+	Repository   interface{}
+	Issues       []types.Issue
+	PullRequests []types.PullRequest
+	Page         string
+	Settings     settings.Settings
 }
 
 func HandleLocalProviderPage(w http.ResponseWriter, r *http.Request) {
@@ -42,10 +44,24 @@ func HandleLocalProviderPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	issues, err := repo.Remote.FetchIssues(absPath, types.IssueFilterOptions{})
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	pullRequests, err := repo.Remote.FetchPullRequests(absPath, "")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	data := LocalPageData{
-		Repository: repo,
-		Page:       "local",
-		Settings:   state.State.Settings,
+		Repository:   repo,
+		Page:         "local",
+		Settings:     state.State.Settings,
+		Issues:       issues,
+		PullRequests: pullRequests,
 	}
 
 	err = templates.ExecuteTemplate(w, "layout.html", data)
@@ -332,13 +348,41 @@ func HandleUpdateLocalIssueState(w http.ResponseWriter, r *http.Request) {
 	repo.Mu.Lock()
 	defer repo.Mu.Unlock()
 
-	issue, exists := repo.Issues[req.IssueNumber]
-	if !exists {
-		http.Error(w, "Issue not found", http.StatusNotFound)
+	err = repo.Remote.UpdateIssueState(req.IssueNumber, req.State)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	issue.State = req.State
-	issue.UpdatedAt = time.Now().String()
+	w.WriteHeader(http.StatusOK)
+}
+
+func HandleUpdateLocalPullRequestState(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Path     string `json:"path"`
+		PRNumber int    `json:"prNumber"`
+		State    string `json:"state"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	repo, err := getRepository(req.Path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+
+	repo.Mu.Lock()
+	defer repo.Mu.Unlock()
+
+	err = repo.Remote.UpdatePullRequestState(req.Path, req.PRNumber, req.State)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	w.WriteHeader(http.StatusOK)
 }

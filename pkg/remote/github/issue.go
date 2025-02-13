@@ -13,7 +13,7 @@ func (p *Provider) CreateIssue(issue types.Issue) (int, error) {
 	return 0, nil
 }
 
-func (p *Provider) FetchIssues(remotePath, label string) ([]types.Issue, error) {
+func (p *Provider) FetchIssues(remotePath string, options types.IssueFilterOptions) ([]types.Issue, error) {
 	parts := strings.Split(remotePath, "/")
 	if len(parts) < 2 {
 		return nil, fmt.Errorf("invalid remote path format")
@@ -21,9 +21,19 @@ func (p *Provider) FetchIssues(remotePath, label string) ([]types.Issue, error) 
 	owner := parts[0]
 	repo := parts[1]
 
+	labelsFilter := []string{}
+	if options.Label != "" {
+		labelsFilter = append(labelsFilter, options.Label)
+	}
+
+	stateFilter := "open"
+	if options.State != "" {
+		stateFilter = options.State
+	}
+
 	opt := &github.IssueListByRepoOptions{
-		Labels: []string{label},
-		State:  "open",
+		Labels: labelsFilter,
+		State:  stateFilter,
 		ListOptions: github.ListOptions{
 			PerPage: 100,
 		},
@@ -58,5 +68,9 @@ func (p *Provider) FetchIssues(remotePath, label string) ([]types.Issue, error) 
 }
 
 func (p *Provider) AddLabelToIssue(issueNumber int, label string) error {
+	return nil
+}
+
+func (p *Provider) UpdateIssueState(issueNumber int, state string) error {
 	return nil
 }

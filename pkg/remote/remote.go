@@ -21,10 +21,12 @@ var stringToIntMap = map[string]int{
 type Provider interface {
 	CreateDraftPR(path string, input types.PullRequestInput) error
 	CreateIssue(issue types.Issue) (int, error)
+	UpdateIssueState(issueNumber int, state string) error
 	AddLabelToIssue(issueNumber int, label string) error
 	FetchRepositories() ([]types.Repository, error)
-	FetchIssues(remotePath, label string) ([]types.Issue, error)
+	FetchIssues(remotePath string, options types.IssueFilterOptions) ([]types.Issue, error)
 	FetchPullRequests(remotePath, label string) ([]types.PullRequest, error)
+	UpdatePullRequestState(remotePath string, prNumber int, state string) error
 	FetchDiffs(owner, repo string, resourceID int) (string, error)
 	FetchComments(owner, repo string, prNumber int) ([]*types.Comment, error)
 	AddCommentReaction(repoPath, reaction string, commentID int64) error

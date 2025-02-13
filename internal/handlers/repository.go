@@ -285,6 +285,7 @@ func HandleSyncRepository(w http.ResponseWriter, r *http.Request) {
 func getRepository(path string) (*repository.Repository, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
+		log.Printf("error getting absolute path: %v", err)
 		return nil, err
 	}
 
@@ -293,6 +294,7 @@ func getRepository(path string) (*repository.Repository, error) {
 	state.State.Mu.RUnlock()
 
 	if !exists {
+		log.Printf("repository does not exist: %s", absPath)
 		return nil, fmt.Errorf("repository does not exist")
 	}
 	return repo, nil

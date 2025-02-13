@@ -7,12 +7,13 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 
 	"github.com/jbutlerdev/dev-team/pkg/remote/types"
 )
 
 const (
-	dataPath    = "~/.config/dev-team/local-provider.json"
+	dataPath    = ".config/dev-team/local-provider.json"
 	filterLabel = "dev-team"
 )
 
@@ -35,10 +36,11 @@ func NewProvider(path string) *Provider {
 func (p *Provider) CreateDraftPR(path string, input types.PullRequestInput) error {
 	p.IssueCounter++
 	p.PullRequests[p.IssueCounter] = &types.PullRequest{
-		Number: p.IssueCounter,
-		Title:  input.Title,
-		Body:   input.Description,
-		State:  "draft",
+		Number:     p.IssueCounter,
+		Title:      input.Title,
+		Body:       input.Description,
+		State:      "draft",
+		BaseBranch: input.Base,
 	}
 
 	return p.Save()
@@ -47,22 +49,35 @@ func (p *Provider) CreateDraftPR(path string, input types.PullRequestInput) erro
 func (p *Provider) CreateIssue(issue types.Issue) (int, error) {
 	p.IssueCounter++
 	issue.Number = p.IssueCounter
+	issue.SourceURL = fmt.Sprintf("%s/issues/%d", p.Path, p.IssueCounter)
 	p.Issues[p.IssueCounter] = &issue
 
 	return p.IssueCounter, p.Save()
 }
 
-func (p *Provider) FetchRepositories() ([]types.Repository, error) {
-	return nil, nil
+func (p *Provider) UpdateIssueState(issueNumber int, state string) error {
+	issue, ok := p.Issues[issueNumber]
+	if !ok {
+		return fmt.Errorf("issue %d not found", issueNumber)
+	}
+	issue.State = state
+	return p.Save()
 }
 
-func (p *Provider) FetchIssues(remotePath, label string) ([]types.Issue, error) {
+func (p *Provider) FetchIssues(remotePath string, options types.IssueFilterOptions) ([]types.Issue, error) {
 	issues := make([]types.Issue, 0, len(p.Issues))
 	for _, issue := range p.Issues {
-		if slices.Contains(issue.Labels, filterLabel) {
-			issues = append(issues, *issue)
+		if options.Label != "" && !slices.Contains(issue.Labels, options.Label) {
+			continue
 		}
+		if options.State != "" && issue.State != options.State {
+			continue
+		}
+		issues = append(issues, *issue)
 	}
+	sort.Slice(issues, func(i, j int) bool {
+		return issues[i].Number < issues[j].Number
+	})
 	return issues, nil
 }
 
@@ -81,7 +96,20 @@ func (p *Provider) FetchPullRequests(remotePath, label string) ([]types.PullRequ
 	for _, pullRequest := range p.PullRequests {
 		pullRequests = append(pullRequests, *pullRequest)
 	}
+	sort.Slice(pullRequests, func(i, j int) bool {
+		return pullRequests[i].Number < pullRequests[j].Number
+	})
 	return pullRequests, nil
+}
+
+func (p *Provider) UpdatePullRequestState(remotePath string, prNumber int, state string) error {
+	pullRequest, ok := p.PullRequests[prNumber]
+	if !ok {
+		return fmt.Errorf("pull request %d not found", prNumber)
+	}
+	pullRequest.State = state
+	p.PullRequests[prNumber] = pullRequest
+	return p.Save()
 }
 
 func (p *Provider) FetchDiffs(owner, repo string, resourceID int) (string, error) {
@@ -106,6 +134,10 @@ func (p *Provider) AddCommentReaction(repoPath, reaction string, commentID int64
 	}
 
 	return p.Save()
+}
+
+func (p *Provider) FetchRepositories() ([]types.Repository, error) {
+	return nil, nil
 }
 
 func addReactionToReactions(reactions types.Reactions, reaction string) types.Reactions {
@@ -138,12 +170,19 @@ func (p *Provider) Save() error {
 		return fmt.Errorf("error validating data path: %v", err)
 	}
 
-	// write to file
-	data, err := json.Marshal(p)
+	file, err := os.Create(path)
 	if err != nil {
-		return fmt.Errorf("error marshalling data: %v", err)
+		return fmt.Errorf("error creating file: %v", err)
 	}
-	return os.WriteFile(path, data, 0644)
+	defer file.Close()
+
+	encoder := json.NewEncoder(file)
+	encoder.SetIndent("", "  ")
+	err = encoder.Encode(p)
+	if err != nil {
+		return fmt.Errorf("error encoding data: %v", err)
+	}
+	return nil
 }
 
 func loadProvider(path string) (*Provider, error) {
@@ -176,7 +215,12 @@ func loadProvider(path string) (*Provider, error) {
 }
 
 func validatePath(path string) (string, error) {
-	absPath, err := filepath.Abs(path)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("error getting user home directory: %v", err)
+	}
+	fullPath := filepath.Join(home, path)
+	absPath, err := filepath.Abs(fullPath)
 	if err != nil {
 		return "", fmt.Errorf("error getting absolute path: %v", err)
 	}

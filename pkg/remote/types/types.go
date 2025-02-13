@@ -21,6 +21,11 @@ type Issue struct {
 	Comments  []*Comment `json:"comments"`
 }
 
+type IssueFilterOptions struct {
+	State string `json:"state"`
+	Label string `json:"label"`
+}
+
 type PullRequestInput struct {
 	Title               string `json:"title"`
 	Description         string `json:"description"`
@@ -40,6 +45,7 @@ type PullRequest struct {
 	IssueURL        string     `json:"issue_url"`
 	CreatedAt       string     `json:"created_at"`
 	UpdatedAt       string     `json:"updated_at"`
+	BaseBranch      string     `json:"base_branch"`
 	LinkedIssueURLs []string   `json:"linked_issue_urls"`
 	Diff            string     `json:"diff"`
 	Comments        []*Comment `json:"comments"`

@@ -68,7 +68,10 @@ func (r *Repository) UpdateIssues(token string) error {
 	if r.RemotePath == "" {
 		return fmt.Errorf("repository remote path is not set")
 	}
-	issues, err := r.Remote.FetchIssues(r.RemotePath, "dev-team")
+	issues, err := r.Remote.FetchIssues(r.RemotePath, types.IssueFilterOptions{
+		State: "open",
+		Label: "dev-team",
+	})
 	if err != nil {
 		log.Printf("Error fetching issues: %v, request: %v", err, r.RemotePath)
 		return err
